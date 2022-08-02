@@ -1,6 +1,6 @@
 use std::fs::File;
+use std::io::{self, BufRead, BufReader, Result, Write};
 use std::process::exit;
-use std::io::{BufReader, Result, BufRead, self, Write};
 
 pub struct Lox {
     had_error: bool,
@@ -19,8 +19,8 @@ impl Lox {
             self.run(&line.expect(&format!("Failed to read line from {path}")))
         }
 
-        if self.had_error { 
-            exit(65) 
+        if self.had_error {
+            exit(65)
         }
 
         Ok(())
@@ -35,7 +35,9 @@ impl Lox {
             io::stdout().flush().unwrap();
             let mut line = String::new();
             cin.read_line(&mut line).unwrap();
-            if line.trim().is_empty() { break; }
+            if line.trim().is_empty() {
+                break;
+            }
             self.run(line.trim());
             self.had_error = false;
         }
@@ -55,10 +57,7 @@ impl Lox {
     }
 
     fn report(&mut self, line: usize, r#where: &str, msg: &str) {
-        println!(
-            "[line {line}] Error{where}: {msg}"
-        );
+        println!("[line {line}] Error{where}: {msg}");
         self.had_error = true;
     }
 }
-

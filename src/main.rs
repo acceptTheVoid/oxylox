@@ -1,8 +1,10 @@
 pub mod lox;
 pub mod tokentype;
+pub mod token;
+pub mod scanner;
 
 use lox::Lox;
-use std::{env::args, process::exit, io::Result};
+use std::{env::args, io::Result, process::exit};
 
 fn main() -> Result<()> {
     let args: Vec<String> = args().collect();
@@ -19,5 +21,3 @@ fn main() -> Result<()> {
 
     Ok(())
 }
-
-
