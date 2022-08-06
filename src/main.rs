@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 pub mod lox;
 pub mod tokentype;
 pub mod token;

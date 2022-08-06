@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Result, Write};
 use std::process::exit;
+use crate::scanner::Scanner;
 
 pub struct Lox {
     had_error: bool,
@@ -11,7 +12,7 @@ impl Lox {
         Self { had_error: false }
     }
 
-    pub fn run_file(&self, path: &str) -> Result<()> {
+    pub fn run_file(&mut self, path: &str) -> Result<()> {
         let file = File::options().read(true).open(path)?;
         let reader = BufReader::new(file);
 
@@ -43,16 +44,17 @@ impl Lox {
         }
     }
 
-    fn run(&self, line: &str) {
-        let scanner = Scanner::new(line);
+    fn run(&mut self, line: &str) {
+        let mut scanner = Scanner::new(line, self);
         let tokens = scanner.scan_tokens();
 
         for token in tokens {
-            println!("{token}")
+            print!("{token}")
         }
+        println!("")
     }
 
-    fn error(&self, line: usize, msg: &str) {
+    pub fn error(&mut self, line: usize, msg: &str) {
         self.report(line, "", msg);
     }
 

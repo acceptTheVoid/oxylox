@@ -10,7 +10,7 @@ pub struct Token<'a> {
 impl<'a> Token<'a> {
     pub fn new(
         r#type: TokenType,
-        lexeme: &str,
+        lexeme: &'a str,
         literal: Box<dyn std::fmt::Display>,
         line: usize,
     ) -> Self {
@@ -23,11 +23,19 @@ impl<'a> Token<'a> {
     }
 }
 
-impl ToString for Token {
-    fn to_string(&self) -> String {
-        format!(
-            "{} {} {}",
+impl<'a> std::fmt::Display for Token<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?} {} {}",
             self.r#type, self.lexeme, self.literal,
         )
     }
 }
+
+// impl<'a> ToString for Token<'a> {
+//     fn to_string(&self) -> String {
+//         format!(
+//             "{} {} {}",
+//             self.r#type, self.lexeme, self.literal,
+//         )
+//     }
+// }
