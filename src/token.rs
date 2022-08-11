@@ -1,17 +1,18 @@
-use crate::tokentype::TokenType;
+use crate::{tokentype::TokenType, value::Value};
 
-pub struct Token<'a> {
+#[derive(Debug)]
+pub struct Token {
     r#type: TokenType,
-    lexeme: &'a str,
-    literal: Box<dyn std::fmt::Display>,
+    pub lexeme: String,
+    literal: Value,
     line: usize,
 }
 
-impl<'a> Token<'a> {
+impl Token {
     pub fn new(
         r#type: TokenType,
-        lexeme: &'a str,
-        literal: Box<dyn std::fmt::Display>,
+        lexeme: String,
+        literal: Value,
         line: usize,
     ) -> Self {
         Self { 
@@ -23,19 +24,10 @@ impl<'a> Token<'a> {
     }
 }
 
-impl<'a> std::fmt::Display for Token<'a> {
+impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?} {} {}",
             self.r#type, self.lexeme, self.literal,
         )
     }
 }
-
-// impl<'a> ToString for Token<'a> {
-//     fn to_string(&self) -> String {
-//         format!(
-//             "{} {} {}",
-//             self.r#type, self.lexeme, self.literal,
-//         )
-//     }
-// }

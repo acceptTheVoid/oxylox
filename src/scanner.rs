@@ -1,8 +1,8 @@
-use crate::{token::Token, tokentype::{TokenType, KEYWORDS}, lox::Lox};
+use crate::{token::Token, tokentype::{TokenType, KEYWORDS}, lox::Lox, value::Value};
 
 pub struct Scanner<'a> {
     source: &'a str,
-    tokens: Vec<Token<'a>>,   
+    tokens: Vec<Token>,   
     start: usize,
     current: usize,
     line: usize,
@@ -30,8 +30,8 @@ impl<'a> Scanner<'a> {
         self.tokens.push(
             Token::new(
                 TokenType::Eof,
-                "",
-                Box::new(""), 
+                "".to_string(),
+                Value::Nil, 
                 self.line)
             );
         &self.tokens
@@ -102,18 +102,18 @@ impl<'a> Scanner<'a> {
     }
 
     fn add_token(&mut self, token: TokenType) {
-        self.add_token_literal(token, Box::new(""))
+        self.add_token_literal(token, Value::Nil)
     }
 
     fn add_token_literal(
         &mut self, 
         token: TokenType, 
-        literal: Box<dyn std::fmt::Display>
+        literal: Value,
     ) {
         let text = &self.source[self.start..self.current];
         self.tokens.push(Token::new(
             token,
-            text,
+            text.to_string(),
             literal,
             self.line,
         ));
@@ -148,7 +148,7 @@ impl<'a> Scanner<'a> {
         self.advance();
 
         let val = &self.source[self.start + 1..self.current - 1];
-        self.add_token_literal(TokenType::String, Box::new(val.to_string()));
+        self.add_token_literal(TokenType::String, Value::String(val.to_string()));
     }
 
     fn number(&mut self) {
@@ -162,7 +162,7 @@ impl<'a> Scanner<'a> {
 
         self.add_token_literal(
             TokenType::Number, 
-            Box::new(num),
+            Value::Number(num),
         );
     }
 

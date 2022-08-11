@@ -49,9 +49,8 @@ impl Lox {
         let tokens = scanner.scan_tokens();
 
         for token in tokens {
-            print!("{token}")
+            println!("{token}")
         }
-        println!("")
     }
 
     pub fn error(&mut self, line: usize, msg: &str) {

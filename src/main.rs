@@ -4,6 +4,8 @@ pub mod lox;
 pub mod tokentype;
 pub mod token;
 pub mod scanner;
+pub mod expression;
+pub mod value;
 
 use lox::Lox;
 use std::{env::args, io::Result, process::exit};
