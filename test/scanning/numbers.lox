@@ -1,0 +1,12 @@
+123
+123.456
+.456
+123.
+
+// expect: Number 123 123.0
+// expect: Number 123.456 123.456
+// expect: Dot . Nil
+// expect: Number 456 456.0
+// expect: Number 123 123.0
+// expect: Dot . Nil
+// expect: Eof  Nil

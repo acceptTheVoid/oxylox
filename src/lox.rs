@@ -1,7 +1,7 @@
-use std::fs::File;
-use std::io::{self, BufRead, BufReader, Result, Write};
-use std::process::exit;
 use crate::scanner::Scanner;
+use std::fs::File;
+use std::io::{self, BufRead, BufReader, Read, Result, Write};
+use std::process::exit;
 
 pub struct Lox {
     had_error: bool,
@@ -13,12 +13,16 @@ impl Lox {
     }
 
     pub fn run_file(&mut self, path: &str) -> Result<()> {
-        let file = File::options().read(true).open(path)?;
-        let reader = BufReader::new(file);
+        let mut file = File::options().read(true).open(path)?;
+        let mut buf = String::new();
+        file.read_to_string(&mut buf).unwrap();
 
-        for line in reader.lines() {
-            self.run(&line.expect(&format!("Failed to read line from {path}")))
-        }
+        self.run(&buf);
+
+        // let reader = BufReader::new(file);
+        // for line in reader.lines() {
+        //     self.run(&line.expect(&format!("Failed to read line from {path}")))
+        // }
 
         if self.had_error {
             exit(65)
@@ -45,11 +49,15 @@ impl Lox {
     }
 
     fn run(&mut self, line: &str) {
-        let mut scanner = Scanner::new(line, self);
-        let tokens = scanner.scan_tokens();
+        let scanner = Scanner::new(line);
 
-        for token in tokens {
-            println!("{token}")
+        match scanner.scan_tokens() {
+            Ok(tokens) => {
+                for token in tokens {
+                    println!("{token}")
+                }
+            }
+            Err((line, msg)) => self.error(line, &msg),
         }
     }
 

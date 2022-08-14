@@ -1,47 +1,51 @@
-use crate::{token::Token, tokentype::{TokenType, KEYWORDS}, lox::Lox, value::Value};
+use crate::{
+    token::Token,
+    tokentype::{TokenType, KEYWORDS},
+    value::Value,
+};
+
+pub type ScanResult = Result<Vec<Token>, (usize, String)>;
 
 pub struct Scanner<'a> {
     source: &'a str,
-    tokens: Vec<Token>,   
+    tokens: Vec<Token>,
     start: usize,
     current: usize,
     line: usize,
-    lox_instance: &'a mut Lox,
 }
 
 impl<'a> Scanner<'a> {
-    pub fn new(source: &'a str, lox_instance: &'a mut Lox) -> Self {
-        Scanner { 
-            source, 
-            tokens: Vec::new(), 
+    pub fn new(source: &'a str) -> Self {
+        Scanner {
+            source,
+            tokens: Vec::new(),
             start: 0,
             current: 0,
             line: 1,
-            lox_instance,
         }
     }
 
-    pub fn scan_tokens(&'a mut self) -> &'a Vec<Token> {
+    pub fn scan_tokens(mut self) -> ScanResult {
         while !self.is_at_end() {
             self.start = self.current;
-            self.scan_token();
+            self.scan_token()?;
         }
 
-        self.tokens.push(
-            Token::new(
-                TokenType::Eof,
-                "".to_string(),
-                Value::Nil, 
-                self.line)
-            );
-        &self.tokens
+        self.tokens.push(Token::new(
+            TokenType::Eof,
+            "".to_string(),
+            Value::Nil,
+            self.line,
+        ));
+
+        Ok(self.tokens)
     }
 
     fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
     }
 
-    fn scan_token(&mut self) {
+    fn scan_token(&mut self) -> Result<(), (usize, String)> {
         use TokenType::*;
 
         let c = self.advance();
@@ -59,44 +63,44 @@ impl<'a> Scanner<'a> {
             '!' => {
                 let r#match = self.r#match('=');
                 self.add_token(if r#match { BangEq } else { Bang })
-            },
+            }
             '=' => {
                 let r#match = self.r#match('=');
                 self.add_token(if r#match { EqEq } else { Eq })
-            },
+            }
             '<' => {
                 let r#match = self.r#match('=');
                 self.add_token(if r#match { LessEq } else { Less })
-            },
+            }
             '>' => {
                 let r#match = self.r#match('=');
                 self.add_token(if r#match { GreaterEq } else { Greater })
-            },
+            }
             '/' => {
                 if self.r#match('/') {
-                    while self.peek() != '\n' && !self.is_at_end() { self.advance(); }
+                    while !check_peek(self.peek(), '\n') && !self.is_at_end() {
+                        self.advance();
+                    }
                 } else {
                     self.add_token(Slash)
                 }
-            },
+            }
             ' ' | '\r' | '\t' => (),
             '\n' => self.line += 1,
-            '"' => self.string(),
+            '"' => self.string()?,
             d if d.is_ascii_digit() => self.number(),
-            i if is_alpha_numeric(i) => self.identifier(),
-            _ => {
-                // TODO: Улучшить обработку ошибок символов
-                // Сделать из ошибки на каждый символ одну ошибку на группы символов
-                self.lox_instance.error(self.line, "Unexpected character")
+            i if is_alpha(i) => self.identifier(),
+            ch => {
+                dbg!(ch);
+                return Err((self.line, "Unexpected character".to_string()));
             }
         }
+
+        Ok(())
     }
 
     fn advance(&mut self) -> char {
-        // TODO: Очень некрасиво написано исправь епта
-        // В целом надо провести окисление этого кода
-        // Ведь он может быть написан намного красивее
-        let next = self.source.chars().nth(self.current).unwrap(); 
+        let next = self.source.chars().nth(self.current).unwrap();
         self.current += 1;
         next
     }
@@ -105,74 +109,78 @@ impl<'a> Scanner<'a> {
         self.add_token_literal(token, Value::Nil)
     }
 
-    fn add_token_literal(
-        &mut self, 
-        token: TokenType, 
-        literal: Value,
-    ) {
+    fn add_token_literal(&mut self, token: TokenType, literal: Value) {
         let text = &self.source[self.start..self.current];
-        self.tokens.push(Token::new(
-            token,
-            text.to_string(),
-            literal,
-            self.line,
-        ));
+        self.tokens
+            .push(Token::new(token, text.to_string(), literal, self.line));
     }
 
     fn r#match(&mut self, expected: char) -> bool {
-        if self.is_at_end() { return false }
-        if self.source.chars().nth(self.current).unwrap() != expected { return false }
+        if self.is_at_end() {
+            return false;
+        }
+        if self.source.chars().nth(self.current).unwrap() != expected {
+            return false;
+        }
 
         self.current += 1;
         true
     }
 
-    fn peek(&self) -> char {
-        // TODO: Тоже не очень красиво 
-        // Надо переписать на Option
-        if self.is_at_end() { return '\0' }
-        self.source.chars().nth(self.current).unwrap()
+    fn peek(&self) -> Option<char> {
+        self.source.chars().nth(self.current)
     }
 
-    fn string(&mut self) {
-        while self.peek() != '"' && !self.is_at_end() {
-            if self.peek() == '\n' { self.line += 1 }
-            self.advance();
+    fn string(&mut self) -> Result<(), (usize, String)> {
+        while let Some(ch) = self.peek() {
+            match ch {
+                '"' => break,
+                '\n' => self.line += 1,
+                _ => {
+                    self.advance();
+                }
+            }
         }
 
         if self.is_at_end() {
-            self.lox_instance.error(self.line, "Unterminated string");
-            return;
+            return Err((self.line, "Unterminated string".to_string()));
         }
 
         self.advance();
 
         let val = &self.source[self.start + 1..self.current - 1];
         self.add_token_literal(TokenType::String, Value::String(val.to_string()));
+
+        Ok(())
     }
 
     fn number(&mut self) {
-        while self.peek().is_ascii_digit() { self.advance(); }
-        if self.peek() == '.' && self.peek_next().is_ascii_digit() {
+        while is_digit(self.peek()) {
             self.advance();
-            while self.peek().is_ascii_digit() { self.advance(); }
         }
 
-        let num = self.source[self.start..self.current].parse::<f64>().unwrap();
+        if check_peek(self.peek(), '.') && is_digit(self.peek_next()) {
+            self.advance();
+            while is_digit(self.peek()) {
+                self.advance();
+            }
+        }
 
-        self.add_token_literal(
-            TokenType::Number, 
-            Value::Number(num),
-        );
+        let num = self.source[self.start..self.current]
+            .parse::<f64>()
+            .unwrap();
+
+        self.add_token_literal(TokenType::Number, Value::Number(num));
     }
 
-    fn peek_next(&self) -> char {
-        if self.current + 1 >= self.source.len() { return '\0' }
-        self.source.chars().nth(self.current + 1).unwrap()
+    fn peek_next(&self) -> Option<char> {
+        self.source.chars().nth(self.current + 1)
     }
 
     fn identifier(&mut self) {
-        while is_alpha_numeric(self.peek()) { self.advance(); }
+        while check_peek_with(self.peek(), is_alpha_numeric) {
+            self.advance();
+        }
 
         let text = &self.source[self.start..self.current];
         let r#type = match KEYWORDS.get(text) {
@@ -185,11 +193,21 @@ impl<'a> Scanner<'a> {
 }
 
 fn is_alpha(c: char) -> bool {
-    'a' <= c && c <= 'z' ||
-    'A' <= c && c <= 'Z' ||
-    c == '_'
+    'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '_'
 }
 
 fn is_alpha_numeric(c: char) -> bool {
     is_alpha(c) || c.is_ascii_digit()
+}
+
+fn is_digit(ch: Option<char>) -> bool {
+    ch.filter(|ch| ch.is_ascii_digit()).is_some()
+}
+
+fn check_peek(ch: Option<char>, to_check: char) -> bool {
+    ch.filter(|ch| *ch == to_check).is_some()
+}
+
+fn check_peek_with(ch: Option<char>, check: impl FnOnce(char) -> bool) -> bool {
+    ch.filter(|ch| check(*ch)).is_some()
 }

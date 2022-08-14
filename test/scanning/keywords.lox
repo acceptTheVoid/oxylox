@@ -1,0 +1,18 @@
+and class else false for fun if nil or return super this true var while
+
+// expect: And and Nil
+// expect: Class class Nil
+// expect: Else else Nil
+// expect: False false Nil
+// expect: For for Nil
+// expect: Fun fun Nil
+// expect: If if Nil
+// expect: Nil nil Nil
+// expect: Or or Nil
+// expect: Return return Nil
+// expect: Super super Nil
+// expect: This this Nil
+// expect: True true Nil
+// expect: Var var Nil
+// expect: While while Nil
+// expect: Eof  Nil

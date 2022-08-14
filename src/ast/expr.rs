@@ -1,5 +1,5 @@
-use crate::{token::Token, value::Value};
 use super::visitor::Visitor;
+use crate::{token::Token, value::Value};
 
 pub struct Binary {
     pub left: Box<Ast>,

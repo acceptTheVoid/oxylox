@@ -1,0 +1,12 @@
+space    tabs				newlines
+
+
+
+
+end
+
+// expect: Identifier space Nil
+// expect: Identifier tabs Nil
+// expect: Identifier newlines Nil
+// expect: Identifier end Nil
+// expect: Eof  Nil

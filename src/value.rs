@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Nil,
     Number(f64),
@@ -6,13 +6,15 @@ pub enum Value {
     Bool(bool),
 }
 
+impl Eq for Value {}
+
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use Value::*;
 
         let to_write = match self {
             Nil => "Nil".to_string(),
-            Number(n) => n.to_string(),
+            Number(n) => format!("{n:?}"),
             String(s) => s.to_string(),
             Bool(b) => b.to_string(),
         };

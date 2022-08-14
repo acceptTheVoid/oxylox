@@ -1,5 +1,5 @@
-pub mod visitor;
-pub mod expr;
 pub mod ast_printer;
+pub mod expr;
+pub mod visitor;
 
 pub use expr::*;

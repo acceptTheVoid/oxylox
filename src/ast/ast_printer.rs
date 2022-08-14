@@ -1,4 +1,4 @@
-use super::{visitor::Visitor, expr::*};
+use super::{expr::*, visitor::Visitor};
 
 pub struct AstPrint;
 impl AstPrint {
@@ -11,7 +11,12 @@ impl Visitor for AstPrint {
     type Output = String;
 
     fn visit_binary(&mut self, bin: &Binary) -> Self::Output {
-        format!("({} {} {})", bin.op.lexeme, bin.left.accept(self), bin.right.accept(self))
+        format!(
+            "({} {} {})",
+            bin.op.lexeme,
+            bin.left.accept(self),
+            bin.right.accept(self)
+        )
     }
 
     fn visit_grouping(&mut self, group: &Grouping) -> Self::Output {
