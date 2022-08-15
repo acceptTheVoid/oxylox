@@ -1,4 +1,4 @@
-use super::visitor::Visitor;
+use super::visitor::{Visitor, ConsumeVisitor};
 use crate::{token::Token, value::Value};
 
 pub struct Binary {
@@ -34,6 +34,15 @@ impl Ast {
             Self::Grouping(ref group) => visitor.visit_grouping(group),
             Self::Literal(ref literal) => visitor.visit_literal(literal),
             Self::Unary(ref unary) => visitor.visit_unary(unary),
+        }
+    }
+
+    pub fn consume<V: ConsumeVisitor>(self, visitor: &mut V) -> V::Output {
+        match self {
+            Self::Binary(bin) => visitor.visit_binary(bin),
+            Self::Grouping(group) => visitor.visit_grouping(group),
+            Self::Literal(literal) => visitor.visit_literal(literal),
+            Self::Unary(unary) => visitor.visit_unary(unary),
         }
     }
 }

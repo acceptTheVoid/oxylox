@@ -8,6 +8,7 @@ pub mod test;
 pub mod token;
 pub mod tokentype;
 pub mod value;
+pub mod interpreter;
 
 use lox::Lox;
 use std::{env::args, io::Result, process::exit};

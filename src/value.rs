@@ -14,7 +14,7 @@ impl std::fmt::Display for Value {
 
         let to_write = match self {
             Nil => "Nil".to_string(),
-            Number(n) => format!("{n:?}"),
+            Number(n) => n.to_string(),
             String(s) => s.to_string(),
             Bool(b) => b.to_string(),
         };

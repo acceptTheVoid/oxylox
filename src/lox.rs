@@ -1,4 +1,5 @@
-use crate::ast::ast_printer::AstPrint;
+// use crate::ast::ast_printer::AstPrint;
+use crate::interpreter::{InterpretError, Interpreter};
 use crate::parser::Parser;
 use crate::scanner::Scanner;
 use crate::token::Token;
@@ -9,11 +10,13 @@ use std::process::exit;
 
 pub struct Lox {
     had_error: bool,
+    had_runtime_error: bool,
+    interpreter: Interpreter,
 }
 
 impl Lox {
     pub fn new() -> Self {
-        Self { had_error: false }
+        Self { had_error: false, had_runtime_error: false, interpreter: Interpreter::new() }
     }
 
     pub fn run_file(&mut self, path: &str) -> Result<()> {
@@ -25,6 +28,10 @@ impl Lox {
 
         if self.had_error {
             exit(65)
+        }
+
+        if self.had_runtime_error {
+            exit(70);
         }
 
         Ok(())
@@ -55,8 +62,10 @@ impl Lox {
                 let mut parser = Parser::new(tokens);
                 match parser.parse() {
                     Ok(ast) => {
-                        let mut ast_printer = AstPrint;
-                        println!("{}", ast_printer.print(&ast));
+                        match self.interpreter.interpret(ast) {
+                            Ok(res) => println!("{res}"),
+                            Err(e) => self.runtime_error(e),
+                        }
                     },
                     Err(e) => self.parse_error(&e.token, &e.msg),
                 };
@@ -65,11 +74,11 @@ impl Lox {
         }
     }
 
-    pub fn scan_error(&mut self, line: usize, msg: &str) {
+    fn scan_error(&mut self, line: usize, msg: &str) {
         self.report(line, "", msg);
     }
 
-    pub fn parse_error(&mut self, token: &Token, msg: &str) {
+    fn parse_error(&mut self, token: &Token, msg: &str) {
         if token.r#type == TokenType::Eof { 
             self.report(token.line, " at end", msg);
         } else {
@@ -77,8 +86,13 @@ impl Lox {
         }
     }
 
+    fn runtime_error(&mut self, error: InterpretError) {
+        eprintln!("{}\n[line {}]", error.msg, error.token.line);
+        self.had_runtime_error = true;
+    }
+
     fn report(&mut self, line: usize, r#where: &str, msg: &str) {
-        println!("[line {line}] Error{where}: {msg}");
+        eprintln!("[line {line}] Error{where}: {msg}");
         self.had_error = true;
     }
 }
