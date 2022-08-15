@@ -5,7 +5,7 @@ pub struct Token {
     pub r#type: TokenType,
     pub lexeme: String,
     pub literal: Value,
-    line: usize,
+    pub line: usize,
 }
 
 impl Token {

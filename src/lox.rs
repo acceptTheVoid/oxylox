@@ -1,6 +1,10 @@
+use crate::ast::ast_printer::AstPrint;
+use crate::parser::Parser;
 use crate::scanner::Scanner;
+use crate::token::Token;
+use crate::tokentype::TokenType;
 use std::fs::File;
-use std::io::{self, BufRead, BufReader, Read, Result, Write};
+use std::io::{self, Read, Result, Write};
 use std::process::exit;
 
 pub struct Lox {
@@ -18,11 +22,6 @@ impl Lox {
         file.read_to_string(&mut buf).unwrap();
 
         self.run(&buf);
-
-        // let reader = BufReader::new(file);
-        // for line in reader.lines() {
-        //     self.run(&line.expect(&format!("Failed to read line from {path}")))
-        // }
 
         if self.had_error {
             exit(65)
@@ -53,16 +52,29 @@ impl Lox {
 
         match scanner.scan_tokens() {
             Ok(tokens) => {
-                for token in tokens {
-                    println!("{token}")
-                }
+                let mut parser = Parser::new(tokens);
+                match parser.parse() {
+                    Ok(ast) => {
+                        let mut ast_printer = AstPrint;
+                        println!("{}", ast_printer.print(&ast));
+                    },
+                    Err(e) => self.parse_error(&e.token, &e.msg),
+                };
             }
-            Err((line, msg)) => self.error(line, &msg),
+            Err((line, msg)) => self.scan_error(line, &msg),
         }
     }
 
-    pub fn error(&mut self, line: usize, msg: &str) {
+    pub fn scan_error(&mut self, line: usize, msg: &str) {
         self.report(line, "", msg);
+    }
+
+    pub fn parse_error(&mut self, token: &Token, msg: &str) {
+        if token.r#type == TokenType::Eof { 
+            self.report(token.line, " at end", msg);
+        } else {
+            self.report(token.line, &format!(" at '{}'", token.lexeme), msg);
+        }
     }
 
     fn report(&mut self, line: usize, r#where: &str, msg: &str) {
