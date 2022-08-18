@@ -1,5 +1,5 @@
 use crate::{
-    ast::*,
+    ast::{*, stmt::Stmt},
     token::Token,
     tokentype::TokenType::{self, *},
     value::Value,
@@ -20,8 +20,8 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Result<Ast, ParseError> {
-        self.expression()
+    pub fn parse(&mut self) -> Result<Stmt, ParseError> {
+        Ok(Stmt::Expr(self.expression()?))
     }
 
     fn is_at_end(&self) -> bool {
@@ -60,112 +60,101 @@ impl Parser {
         false
     }
 
-    fn expression(&mut self) -> Result<Ast, ParseError> {
+    fn expression(&mut self) -> Result<Expr, ParseError> {
         Ok(self.equality()?)
     }
 
-    fn equality(&mut self) -> Result<Ast, ParseError> {
+    fn equality(&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.comparsion()?;
 
         while self.match_any(&[TokenType::BangEq, TokenType::EqEq]) {
             let op = self.previous().clone();
             let right = self.comparsion()?;
-            expr = Ast::Binary(Binary {
+            expr = Expr::Binary {
                 op,
                 left: Box::new(expr),
                 right: Box::new(right),
-            });
+            };
         }
 
         Ok(expr)
     }
 
-    fn comparsion(&mut self) -> Result<Ast, ParseError> {
+    fn comparsion(&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.term()?;
 
         while self.match_any(&[Greater, GreaterEq, Less, LessEq]) {
             let op = self.previous().clone();
             let right = self.term()?;
-            expr = Ast::Binary(Binary {
+            expr = Expr::Binary {
                 op,
                 left: Box::new(expr),
                 right: Box::new(right),
-            });
+            };
         }
 
         Ok(expr)
     }
 
-    fn term(&mut self) -> Result<Ast, ParseError> {
+    fn term(&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.factor()?;
 
         while self.match_any(&[Minus, Plus]) {
             let op = self.previous().clone();
             let right = self.factor()?;
-            expr = Ast::Binary(Binary {
+            expr = Expr::Binary {
                 op,
                 left: Box::new(expr),
                 right: Box::new(right),
-            });
+            };
         }
 
         Ok(expr)
     }
 
-    fn factor(&mut self) -> Result<Ast, ParseError> {
+    fn factor(&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.unary()?;
 
         while self.match_any(&[Slash, Star]) {
             let op = self.previous().clone();
             let right = self.unary()?;
-            expr = Ast::Binary(Binary {
+            expr = Expr::Binary {
                 op,
                 left: Box::new(expr),
                 right: Box::new(right),
-            });
+            };
         }
 
         Ok(expr)
     }
 
-    fn unary(&mut self) -> Result<Ast, ParseError> {
+    fn unary(&mut self) -> Result<Expr, ParseError> {
         if self.match_any(&[Bang, Minus]) {
             let op = self.previous().clone();
             let right = self.unary()?;
-            return Ok(Ast::Unary(Unary {
-                op,
-                right: Box::new(right),
-            }))
+            return Ok(Expr::Unary { op, right: Box::new(right) })
         }
 
         self.primary()
     }
 
-    fn primary(&mut self) -> Result<Ast, ParseError> {
+    fn primary(&mut self) -> Result<Expr, ParseError> {
         if self.match_any(&[False]) {
-            return Ok(Ast::Literal(Literal {
-                val: Value::Bool(false),
-            }))
+            return Ok(Expr::Literal(Value::Bool(false)))
         }
 
         if self.match_any(&[True]) {
-            return Ok(Ast::Literal(Literal {
-                val: Value::Bool(true),
-            }))
+            return Ok(Expr::Literal(Value::Bool(true)))
         }
 
         if self.match_any(&[Number, String, Nil]) {
-            return Ok(Ast::Literal(Literal {
-                val: self.previous().literal.clone(),
-            }))
+            return Ok(Expr::Literal(self.previous().literal.clone()))
         }
 
         if self.match_any(&[LeftParen]) {
             let expr = self.expression()?;
             self.consume(RightParen, "Expect ')' after expression")?;
-            return Ok(Ast::Grouping(Grouping {
-                expr: Box::new(expr),
-            }))
+            return Ok(Expr::Grouping(Box::new(expr)))
         }
 
         Err(ParseError { token: self.peek().clone(), msg: "Expect expression".to_string(), })

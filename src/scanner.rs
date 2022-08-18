@@ -90,8 +90,8 @@ impl<'a> Scanner<'a> {
             '"' => self.string()?,
             d if d.is_ascii_digit() => self.number(),
             i if is_alpha(i) => self.identifier(),
-            ch => {
-                dbg!(ch);
+            _ch => {
+                // dbg!(_ch);
                 return Err((self.line, "Unexpected character".to_string()));
             }
         }

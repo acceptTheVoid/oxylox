@@ -1,4 +1,4 @@
-use crate::{ast::{visitor::ConsumeVisitor, Ast}, value::Value, tokentype::TokenType, token::Token};
+use crate::{value::Value, tokentype::TokenType, token::Token, ast::{stmt::Stmt, visitor::Visitor, Expr}};
 
 pub struct Interpreter;
 
@@ -7,8 +7,8 @@ impl Interpreter {
         Self
     }
 
-    pub fn interpret(&mut self, ast: Ast) -> Result<Value, InterpretError> {
-        ast.consume(self)
+    pub fn interpret(&mut self, stmt: &Stmt) -> Result<Value, InterpretError> {
+        self.visit_statement(stmt)
     }
 
     fn is_truthy(&self, val: &Value) -> bool {
@@ -89,44 +89,49 @@ impl Interpreter {
     }
 }
 
-impl ConsumeVisitor for Interpreter {
+impl Visitor for Interpreter {
     type Output = Result<Value, InterpretError>;
 
-    fn visit_binary(&mut self, bin: crate::ast::Binary) -> Self::Output {
-        let left = bin.left.consume(self)?;
-        let right = bin.right.consume(self)?;
-
-        match bin.op.r#type {
-            TokenType::Minus => self.minus(left, right, bin.op),
-            TokenType::Slash => self.slash(left, right, bin.op),
-            TokenType::Star => self.star(left, right, bin.op),
-            TokenType::Plus => self.plus(left, right, bin.op),
-            TokenType::Greater => self.greater(left, right, bin.op),
-            TokenType::GreaterEq => self.greater_eq(left, right, bin.op),
-            TokenType::Less => self.less(left, right, bin.op),
-            TokenType::LessEq => self.less_eq(left, right, bin.op),
-            TokenType::BangEq => Ok(Value::Bool(!left.eq(&right))),
-            TokenType::EqEq => Ok(Value::Bool(left.eq(&right))),
-            _ => unreachable!(),
+    fn visit_statement(&mut self, stmt: &Stmt) -> Self::Output {
+        match *stmt {
+            Stmt::Expr(ref expr) => self.visit_expression(expr),
+            _ => todo!(),
         }
     }
 
-    fn visit_grouping(&mut self, group: crate::ast::Grouping) -> Self::Output {
-        group.expr.consume(self)
-    }
+    fn visit_expression(&mut self, expr: &crate::ast::Expr) -> Self::Output {
+        match expr {
+            Expr::Literal(val) => Ok(val.clone()), // TODO: Ужасный клон это говнище надо исправить
+            Expr::Grouping(expr) => self.visit_expression(expr),
+            Expr::Unary { op, right } => {
+                let right = self.visit_expression(right)?;
 
-    fn visit_literal(&mut self, literal: crate::ast::Literal) -> Self::Output {
-        Ok(literal.val)
-    }
+                match (op.r#type, &right) {
+                    (TokenType::Minus, Value::Number(n)) => Ok(Value::Number(-n)),
+                    (TokenType::Minus, _) => Err(InterpretError::number_op_err(op.clone())), // TODO: Та же история
+                    (TokenType::Bang, _) => Ok(Value::Bool(!self.is_truthy(&right))),
+                    _ => unreachable!(),
+                }
+            },
+            Expr::Binary { left, op, right } => {
+                let left = self.visit_expression(left)?;
+                let right = self.visit_expression(right)?;
+                let op = op.clone();
 
-    fn visit_unary(&mut self, unary: crate::ast::Unary) -> Self::Output {
-        let right = unary.right.consume(self)?;
-
-        match (unary.op.r#type, &right) {
-            (TokenType::Minus, Value::Number(n)) => Ok(Value::Number(-n)),
-            (TokenType::Minus, _) => Err(InterpretError::number_op_err(unary.op)),
-            (TokenType::Bang, _) => Ok(Value::Bool(!self.is_truthy(&right))),
-            _ => unreachable!(),
+                match op.r#type {
+                    TokenType::Minus => self.minus(left, right, op),
+                    TokenType::Slash => self.slash(left, right, op),
+                    TokenType::Star => self.star(left, right, op),
+                    TokenType::Plus => self.plus(left, right, op),
+                    TokenType::Greater => self.greater(left, right, op),
+                    TokenType::GreaterEq => self.greater_eq(left, right, op),
+                    TokenType::Less => self.less(left, right, op),
+                    TokenType::LessEq => self.less_eq(left, right, op),
+                    TokenType::BangEq => Ok(Value::Bool(!left.eq(&right))),
+                    TokenType::EqEq => Ok(Value::Bool(left.eq(&right))),
+                    _ => unreachable!(),
+                }
+            },
         }
     }
 }

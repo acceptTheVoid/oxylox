@@ -16,7 +16,9 @@ pub struct Lox {
 
 impl Lox {
     pub fn new() -> Self {
-        Self { had_error: false, had_runtime_error: false, interpreter: Interpreter::new() }
+        Self { had_error: false, had_runtime_error: false, 
+            interpreter: Interpreter::new() 
+        }
     }
 
     pub fn run_file(&mut self, path: &str) -> Result<()> {
@@ -61,11 +63,13 @@ impl Lox {
             Ok(tokens) => {
                 let mut parser = Parser::new(tokens);
                 match parser.parse() {
-                    Ok(ast) => {
-                        match self.interpreter.interpret(ast) {
+                    Ok(stmt) => {
+                        match self.interpreter.interpret(&stmt) {
                             Ok(res) => println!("{res}"),
                             Err(e) => self.runtime_error(e),
                         }
+                        // let mut printer = AstPrint;
+                        // println!("{}", printer.print(&ast));
                     },
                     Err(e) => self.parse_error(&e.token, &e.msg),
                 };
