@@ -1,4 +1,4 @@
-use super::{expr::*, visitor::Visitor, stmt::Stmt};
+use super::{expr::*, stmt::Stmt, visitor::Visitor};
 
 pub struct AstPrint;
 impl AstPrint {
@@ -11,22 +11,32 @@ impl Visitor for AstPrint {
     type Output = String;
 
     fn visit_statement(&mut self, stmt: &Stmt) -> Self::Output {
-        match *stmt {
-            Stmt::Expr(ref expr) => self.visit_expression(expr),
-            Stmt::Print(_) => unreachable!(),
+        match stmt {
+            Stmt::Expr(expr) => self.visit_expression(expr),
+            Stmt::Print(expr) => format!("(print {})", self.visit_expression(expr)),
+            Stmt::Var { name, initializer } => {
+                format!("({} {})", name.lexeme, self.visit_expression(initializer))
+            }
         }
     }
 
     fn visit_expression(&mut self, expr: &Expr) -> Self::Output {
-        match *expr {
-            Expr::Literal(ref lit) => format!("{lit}"),
-            Expr::Grouping(ref expr) => format!("(group {}", self.visit_expression(expr)),
-            Expr::Unary { ref op, ref right } => format!("({} {})", op.lexeme, self.visit_expression(right)),
-            Expr::Binary { 
-                ref left, 
-                ref op, 
-                ref right 
-            } => format!("({} {} {})", op.lexeme, self.visit_expression(left), self.visit_expression(right)),
+        match expr {
+            Expr::Literal(lit) => format!("{lit}"),
+            Expr::Grouping(expr) => format!("(group {})", self.visit_expression(expr)),
+            Expr::Unary { op, right } => {
+                format!("({} {})", op.lexeme, self.visit_expression(right))
+            }
+            Expr::Binary { left, op, right } => format!(
+                "({} {} {})",
+                op.lexeme,
+                self.visit_expression(left),
+                self.visit_expression(right)
+            ),
+            Expr::Variable(name) => format!("{}", name.lexeme),
+            Expr::Assign { name, val } => {
+                format!("(assign {} {})", name.lexeme, self.visit_expression(val))
+            }
         }
     }
 }

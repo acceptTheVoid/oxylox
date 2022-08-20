@@ -12,4 +12,10 @@ pub enum Expr {
         op: Token,
         right: Box<Expr>,
     },
+    /// Contains name of the variable
+    Variable(Token),
+    Assign {
+        name: Token,
+        val: Box<Expr>,
+    },
 }

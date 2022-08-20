@@ -59,17 +59,20 @@ mod tests {
     #[test]
     fn numbers() {
         let path = format!("{BASE_PATH}numbers.lox");
-    
+
         let tokens = get_tokens_string(&path);
-        assert_eq!(tokens, vec![
-            "Number 123 123.0",
-            "Number 123.456 123.456",
-            "Dot . Nil",
-            "Number 456 456.0",
-            "Number 123 123.0",
-            "Dot . Nil",
-            "Eof  Nil",
-        ]);
+        assert_eq!(
+            tokens,
+            vec![
+                "Number 123 123.0",
+                "Number 123.456 123.456",
+                "Dot . Nil",
+                "Number 456 456.0",
+                "Number 123 123.0",
+                "Dot . Nil",
+                "Eof  Nil",
+            ]
+        );
     }
 
     #[test]
@@ -77,27 +80,30 @@ mod tests {
         let path = format!("{BASE_PATH}punctuators.lox");
 
         let tokens = get_tokens_string(&path);
-        assert_eq!(tokens, vec![
-            "LeftParen ( Nil",
-            "RightParen ) Nil",
-            "LeftBrace { Nil",
-            "RightBrace } Nil",
-            "Semicolon ; Nil",
-            "Comma , Nil",
-            "Plus + Nil",
-            "Minus - Nil",
-            "Star * Nil",
-            "BangEq != Nil",
-            "EqEq == Nil",
-            "LessEq <= Nil",
-            "GreaterEq >= Nil",
-            "BangEq != Nil",
-            "Less < Nil",
-            "Greater > Nil",
-            "Slash / Nil",
-            "Dot . Nil",
-            "Eof  Nil",
-        ]);
+        assert_eq!(
+            tokens,
+            vec![
+                "LeftParen ( Nil",
+                "RightParen ) Nil",
+                "LeftBrace { Nil",
+                "RightBrace } Nil",
+                "Semicolon ; Nil",
+                "Comma , Nil",
+                "Plus + Nil",
+                "Minus - Nil",
+                "Star * Nil",
+                "BangEq != Nil",
+                "EqEq == Nil",
+                "LessEq <= Nil",
+                "GreaterEq >= Nil",
+                "BangEq != Nil",
+                "Less < Nil",
+                "Greater > Nil",
+                "Slash / Nil",
+                "Dot . Nil",
+                "Eof  Nil",
+            ]
+        );
     }
 
     #[test]
@@ -105,11 +111,10 @@ mod tests {
         let path = format!("{BASE_PATH}string.lox");
 
         let tokens = get_tokens_string(&path);
-        assert_eq!(tokens, vec![
-            r#"String "" "#,
-            r#"String "string" string"#,
-            r#"Eof  Nil"#,
-        ]);
+        assert_eq!(
+            tokens,
+            vec![r#"String "" "#, r#"String "string" string"#, r#"Eof  Nil"#,]
+        );
     }
 
     #[test]
@@ -117,13 +122,16 @@ mod tests {
         let path = format!("{BASE_PATH}whitespace.lox");
 
         let tokens = get_tokens_string(&path);
-        assert_eq!(tokens, vec![
-            "Identifier space Nil",
-            "Identifier tabs Nil",
-            "Identifier newlines Nil",
-            "Identifier end Nil",
-            "Eof  Nil"
-        ]);
+        assert_eq!(
+            tokens,
+            vec![
+                "Identifier space Nil",
+                "Identifier tabs Nil",
+                "Identifier newlines Nil",
+                "Identifier end Nil",
+                "Eof  Nil"
+            ]
+        );
     }
 
     fn get_tokens_string(path: &str) -> Vec<String> {

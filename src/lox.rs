@@ -1,5 +1,4 @@
-// use crate::ast::ast_printer::AstPrint;
-use crate::interpreter::{InterpretError, Interpreter};
+use crate::interpreter::{Interpreter, RuntimeError};
 use crate::parser::Parser;
 use crate::scanner::Scanner;
 use crate::token::Token;
@@ -16,8 +15,10 @@ pub struct Lox {
 
 impl Lox {
     pub fn new() -> Self {
-        Self { had_error: false, had_runtime_error: false, 
-            interpreter: Interpreter::new() 
+        Self {
+            had_error: false,
+            had_runtime_error: false,
+            interpreter: Interpreter::new(),
         }
     }
 
@@ -48,10 +49,11 @@ impl Lox {
             io::stdout().flush().unwrap();
             let mut line = String::new();
             cin.read_line(&mut line).unwrap();
-            if line.trim().is_empty() {
+            let line = line.trim();
+            if line.is_empty() {
                 break;
             }
-            self.run(line.trim());
+            self.run(line);
             self.had_error = false;
         }
     }
@@ -64,13 +66,13 @@ impl Lox {
                 let mut parser = Parser::new(tokens);
                 match parser.parse() {
                     Ok(stmt) => {
-                        match self.interpreter.interpret(&stmt) {
-                            Ok(res) => println!("{res}"),
+                        match self.interpreter.interpret(stmt) {
+                            Ok(_) => (),
                             Err(e) => self.runtime_error(e),
                         }
-                        // let mut printer = AstPrint;
-                        // println!("{}", printer.print(&ast));
-                    },
+                        // let mut printer = crate::ast::ast_printer::AstPrint;
+                        // println!("{}", printer.print(&stmt));
+                    }
                     Err(e) => self.parse_error(&e.token, &e.msg),
                 };
             }
@@ -83,14 +85,14 @@ impl Lox {
     }
 
     fn parse_error(&mut self, token: &Token, msg: &str) {
-        if token.r#type == TokenType::Eof { 
+        if token.r#type == TokenType::Eof {
             self.report(token.line, " at end", msg);
         } else {
             self.report(token.line, &format!(" at '{}'", token.lexeme), msg);
         }
     }
 
-    fn runtime_error(&mut self, error: InterpretError) {
+    fn runtime_error(&mut self, error: RuntimeError) {
         eprintln!("{}\n[line {}]", error.msg, error.token.line);
         self.had_runtime_error = true;
     }

@@ -1,2 +1,2 @@
-mod scanner;
 mod parser;
+mod scanner;

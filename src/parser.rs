@@ -1,5 +1,5 @@
 use crate::{
-    ast::{*, stmt::Stmt},
+    ast::{stmt::Stmt, *},
     token::Token,
     tokentype::TokenType::{self, *},
     value::Value,
@@ -14,14 +14,24 @@ pub struct Parser {
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
-        Self {
-            tokens,
-            cur: 0,
-        }
+        Self { tokens, cur: 0 }
     }
 
-    pub fn parse(&mut self) -> Result<Stmt, ParseError> {
-        Ok(Stmt::Expr(self.expression()?))
+    pub fn parse(&mut self) -> Result<Vec<Stmt>, ParseError> {
+        let mut statements = vec![];
+        let mut errors = vec![];
+
+        while !self.is_at_end() {
+            match self.declaration() {
+                Ok(stmt) => statements.push(stmt),
+                Err(e) => {
+                    errors.push(e);
+                    self.synchronize()
+                }
+            }
+        }
+
+        Ok(statements)
     }
 
     fn is_at_end(&self) -> bool {
@@ -45,7 +55,7 @@ impl Parser {
 
     fn check(&self, token: TokenType) -> bool {
         if self.is_at_end() {
-            return false
+            return false;
         }
         self.peek().r#type == token
     }
@@ -54,14 +64,76 @@ impl Parser {
         for t in types {
             if self.check(*t) {
                 self.advance();
-                return true
+                return true;
             }
         }
         false
     }
 
+    fn declaration(&mut self) -> Result<Stmt, ParseError> {
+        if self.match_any(&[Var]) {
+            self.var_declaration()
+        } else {
+            self.statement()
+        }
+    }
+
+    fn var_declaration(&mut self) -> Result<Stmt, ParseError> {
+        let name = self.consume(Identifier, "Expect variable name")?.clone();
+        let mut initializer = Expr::Literal(Value::Nil);
+        if self.match_any(&[Eq]) {
+            initializer = self.expression()?;
+        }
+
+        self.consume(Semicolon, "Expect ';' after variable declaration")?;
+        Ok(Stmt::Var { name, initializer })
+    }
+
+    fn statement(&mut self) -> Result<Stmt, ParseError> {
+        if self.match_any(&[Print]) {
+            return self.print_statement();
+        }
+
+        self.expression_statement()
+    }
+
+    fn print_statement(&mut self) -> Result<Stmt, ParseError> {
+        let val = self.expression()?;
+        self.consume(Semicolon, "Expect ';' after value")?;
+        Ok(Stmt::Print(val))
+    }
+
+    fn expression_statement(&mut self) -> Result<Stmt, ParseError> {
+        let expr = self.expression()?;
+        self.consume(Semicolon, "Expect ';' after value")?;
+        Ok(Stmt::Expr(expr))
+    }
+
     fn expression(&mut self) -> Result<Expr, ParseError> {
-        Ok(self.equality()?)
+        self.assignment()
+    }
+
+    fn assignment(&mut self) -> Result<Expr, ParseError> {
+        let expr = self.equality()?;
+
+        if self.match_any(&[Eq]) {
+            let equals = self.previous().clone();
+            let val = self.assignment()?;
+
+            return if let Expr::Variable(name) = expr {
+                Ok(Expr::Assign {
+                    name,
+                    val: Box::new(val),
+                })
+            } else {
+                Err(ParseError {
+                    token: equals,
+                    msg: "Invalid assignment target".into(),
+                })
+            };
+        }
+
+        Ok(expr)
     }
 
     fn equality(&mut self) -> Result<Expr, ParseError> {
@@ -132,7 +204,10 @@ impl Parser {
         if self.match_any(&[Bang, Minus]) {
             let op = self.previous().clone();
             let right = self.unary()?;
-            return Ok(Expr::Unary { op, right: Box::new(right) })
+            return Ok(Expr::Unary {
+                op,
+                right: Box::new(right),
+            });
         }
 
         self.primary()
@@ -140,30 +215,42 @@ impl Parser {
 
     fn primary(&mut self) -> Result<Expr, ParseError> {
         if self.match_any(&[False]) {
-            return Ok(Expr::Literal(Value::Bool(false)))
+            return Ok(Expr::Literal(Value::Bool(false)));
         }
 
         if self.match_any(&[True]) {
-            return Ok(Expr::Literal(Value::Bool(true)))
+            return Ok(Expr::Literal(Value::Bool(true)));
         }
 
         if self.match_any(&[Number, String, Nil]) {
-            return Ok(Expr::Literal(self.previous().literal.clone()))
+            return Ok(Expr::Literal(self.previous().literal.clone()));
+        }
+
+        if self.match_any(&[Identifier]) {
+            return Ok(Expr::Variable(self.previous().clone()));
         }
 
         if self.match_any(&[LeftParen]) {
             let expr = self.expression()?;
             self.consume(RightParen, "Expect ')' after expression")?;
-            return Ok(Expr::Grouping(Box::new(expr)))
+            return Ok(Expr::Grouping(Box::new(expr)));
         }
 
-        Err(ParseError { token: self.peek().clone(), msg: "Expect expression".to_string(), })
+        Err(ParseError {
+            token: self.peek().clone(),
+            msg: "Expect expression".to_string(),
+        })
     }
 
     fn consume(&mut self, token: TokenType, msg: &str) -> Result<&Token, ParseError> {
-        if self.check(token) { return Ok(self.advance()) }
+        if self.check(token) {
+            return Ok(self.advance());
+        }
 
-        Err(ParseError { token: self.peek().clone(), msg: msg.to_string() })
+        Err(ParseError {
+            token: self.peek().clone(),
+            msg: msg.to_string(),
+        })
     }
 
     #[allow(dead_code)]
@@ -171,8 +258,10 @@ impl Parser {
         self.advance();
 
         while !self.is_at_end() {
-            if self.previous().r#type == Semicolon { return }
-        
+            if self.previous().r#type == Semicolon {
+                return;
+            }
+
             match self.peek().r#type {
                 Class | Fun | Var | For | If | While | Print | Return => return,
                 _ => (),

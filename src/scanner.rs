@@ -193,7 +193,7 @@ impl<'a> Scanner<'a> {
 }
 
 fn is_alpha(c: char) -> bool {
-    'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '_'
+    ('a'..='z').contains(&c) || ('A'..='Z').contains(&c) || c == '_'
 }
 
 fn is_alpha_numeric(c: char) -> bool {
