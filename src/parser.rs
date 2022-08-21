@@ -94,7 +94,22 @@ impl Parser {
             return self.print_statement();
         }
 
+        if self.match_any(&[LeftBrace]) {
+            return Ok(Stmt::Block(self.block()?))
+        }
+
         self.expression_statement()
+    }
+
+    fn block(&mut self) -> Result<Vec<Stmt>, ParseError> {
+        let mut statements = vec![];
+
+        while !self.check(RightBrace) && !self.is_at_end() {
+            statements.push(self.declaration()?);
+        }
+
+        self.consume(RightBrace, "Expect '}' after block")?;
+        Ok(statements)
     }
 
     fn print_statement(&mut self) -> Result<Stmt, ParseError> {
@@ -253,7 +268,6 @@ impl Parser {
         })
     }
 
-    #[allow(dead_code)]
     fn synchronize(&mut self) {
         self.advance();
 
@@ -261,7 +275,7 @@ impl Parser {
             if self.previous().r#type == Semicolon {
                 return;
             }
-
+ 
             match self.peek().r#type {
                 Class | Fun | Var | For | If | While | Print | Return => return,
                 _ => (),

@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use crate::{
     ast::{stmt::Stmt, visitor::Visitor, Expr},
     environment::Environment,
@@ -25,6 +27,11 @@ impl Visitor for Interpreter {
             Stmt::Var { name, initializer } => {
                 let val = self.visit_expression(initializer)?;
                 self.environment.define(name.lexeme.to_string(), val);
+            }
+            Stmt::Block(statemtnts) => {
+                let new_env = Environment::inner(RefCell::new(self.environment));
+                self.environment = new_env;
+                
             }
         };
 
