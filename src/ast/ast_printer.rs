@@ -17,6 +17,14 @@ impl Visitor for AstPrint {
             Stmt::Var { name, initializer } => {
                 format!("({} {})", name.lexeme, self.visit_expression(initializer))
             }
+            Stmt::Block(statements) => {
+                let mut res = "{".to_string();
+                for stmt in statements {
+                    res.push_str(&self.visit_statement(stmt));
+                }
+                res.push('}');
+                res
+            }
         }
     }
 

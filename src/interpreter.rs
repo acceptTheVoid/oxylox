@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-
 use crate::{
     ast::{stmt::Stmt, visitor::Visitor, Expr},
     environment::Environment,
@@ -28,10 +26,11 @@ impl Visitor for Interpreter {
                 let val = self.visit_expression(initializer)?;
                 self.environment.define(name.lexeme.to_string(), val);
             }
-            Stmt::Block(statemtnts) => {
-                let new_env = Environment::inner(RefCell::new(self.environment));
-                self.environment = new_env;
-                
+            Stmt::Block(statements) => {
+                self.environment.new_node();
+                let res = self.execute_block(statements);
+                self.environment.pop_node();
+                res?;
             }
         };
 
@@ -47,7 +46,7 @@ impl Visitor for Interpreter {
 
                 match (op.r#type, &right) {
                     (TokenType::Minus, Value::Number(n)) => Ok(Value::Number(-n)),
-                    (TokenType::Minus, _) => Err(RuntimeError::number_op_err(op.clone())), // TODO: Та же история
+                    (TokenType::Minus, _) => Err(RuntimeError::number_op_err(&op)),
                     (TokenType::Bang, _) => Ok(Value::Bool(!self.is_truthy(&right))),
                     _ => unreachable!(),
                 }
@@ -71,14 +70,10 @@ impl Visitor for Interpreter {
                     _ => unreachable!(),
                 }
             }
-            Expr::Variable(name) => self.environment.get(name.clone()),
+            Expr::Variable(name) => self.environment.get(&name),
             Expr::Assign { name, val } => {
                 let val = self.visit_expression(val)?;
-                // TODO: Это отвратительно
-                // Хуже всего то что это проблема дизайна
-                // Тут реально стоило использовать `Rc`
-                // Все эти клоны были бы такие дешевые....
-                self.environment.assign(name.clone(), val.clone())?;
+                self.environment.assign(&name, &val)?;
                 Ok(val)
             }
         }
@@ -100,6 +95,14 @@ impl Interpreter {
         Ok(())
     }
 
+    fn execute_block(&mut self, statements: &[Stmt]) -> Result<Value, RuntimeError> {
+        for stmt in statements {
+            self.visit_statement(stmt)?;
+        }
+
+        Ok(Value::Nil)
+    }
+
     fn is_truthy(&self, val: &Value) -> bool {
         match *val {
             Value::Nil => false,
@@ -113,7 +116,7 @@ impl Interpreter {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Number(l + r)),
             (Value::String(l), Value::String(r)) => Ok(Value::String(l + &r)),
             _ => Err(RuntimeError {
-                token: op,
+                token: TokenInfo::from(&op),
                 msg: "Operands must be either two strings or two numbers".to_string(),
             }),
         }
@@ -122,73 +125,86 @@ impl Interpreter {
     fn minus(&self, l: Value, r: Value, op: Token) -> Result<Value, RuntimeError> {
         match (l, r) {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Number(l - r)),
-            _ => Err(RuntimeError {
-                token: op,
-                msg: "Operands must be two numbers".to_string(),
-            }),
+            _ => Err(RuntimeError::two_number_op_err(&op)),
         }
     }
 
     fn slash(&self, l: Value, r: Value, op: Token) -> Result<Value, RuntimeError> {
         match (l, r) {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Number(l / r)),
-            _ => Err(RuntimeError {
-                token: op,
-                msg: "Operands must be two numbers".to_string(),
-            }),
+            _ => Err(RuntimeError::two_number_op_err(&op)),
         }
     }
 
     fn star(&self, l: Value, r: Value, op: Token) -> Result<Value, RuntimeError> {
         match (l, r) {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Number(l * r)),
-            _ => Err(RuntimeError {
-                token: op,
-                msg: "Operands must be two numbers".to_string(),
-            }),
+            _ => Err(RuntimeError::two_number_op_err(&op)),
         }
     }
 
     fn greater(&self, l: Value, r: Value, op: Token) -> Result<Value, RuntimeError> {
         match (l, r) {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Bool(l > r)),
-            _ => Err(RuntimeError::number_op_err(op)),
+            _ => Err(RuntimeError::number_op_err(&op)),
         }
     }
 
     fn greater_eq(&self, l: Value, r: Value, op: Token) -> Result<Value, RuntimeError> {
         match (l, r) {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Bool(l >= r)),
-            _ => Err(RuntimeError::number_op_err(op)),
+            _ => Err(RuntimeError::number_op_err(&op)),
         }
     }
 
     fn less(&self, l: Value, r: Value, op: Token) -> Result<Value, RuntimeError> {
         match (l, r) {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Bool(l < r)),
-            _ => Err(RuntimeError::number_op_err(op)),
+            _ => Err(RuntimeError::number_op_err(&op)),
         }
     }
 
     fn less_eq(&self, l: Value, r: Value, op: Token) -> Result<Value, RuntimeError> {
         match (l, r) {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Bool(l <= r)),
-            _ => Err(RuntimeError::number_op_err(op)),
+            _ => Err(RuntimeError::number_op_err(&op)),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct TokenInfo {
+    pub lexeme: String,
+    pub line: usize,   
+}
+
+impl From<&Token> for TokenInfo {
+    fn from(token: &Token) -> Self {
+        Self {
+            lexeme: token.lexeme.clone(),
+            line: token.line,
         }
     }
 }
 
 #[derive(Debug)]
 pub struct RuntimeError {
-    pub token: Token,
+    pub token: TokenInfo,
     pub msg: String,
 }
 
 impl RuntimeError {
-    fn number_op_err(token: Token) -> Self {
+    fn number_op_err(token: &Token) -> Self {
         Self {
-            token,
-            msg: "Operands must be numbers".to_string(),
+            token: token.into(),
+            msg: "Operands must be numbers".into(),
+        }
+    }
+
+    fn two_number_op_err(token: &Token) -> Self {
+        Self {
+            token: token.into(),
+            msg: "Operands must be two numbers".into(),
         }
     }
 }

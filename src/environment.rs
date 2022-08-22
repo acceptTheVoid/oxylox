@@ -1,83 +1,114 @@
-use std::{collections::HashMap, rc::Rc, cell::RefCell};
+use std::collections::HashMap;
 
-use crate::{interpreter::RuntimeError, token::Token, value::Value};
+use crate::{interpreter::{RuntimeError, TokenInfo}, token::Token, value::Value};
 
+#[derive(Debug, Clone)]
 pub struct Environment {
-    enclosing: Option<Rc<RefCell<Environment>>>,
-    values: HashMap<String, Value>,
+    stack: Vec<EnvNode>,
 }
 
 impl Environment {
     pub fn new() -> Self {
         Self {
-            values: HashMap::new(),
-            enclosing: None,
+            stack: vec![
+                EnvNode::new(),
+            ],
         }
     }
 
-    pub fn inner(env: RefCell<Environment>) -> Self {
-        Self {
-            values: HashMap::new(),
-            enclosing: Some(Rc::new(env)),
-        }
+    pub fn new_node(&mut self) {
+        self.stack.push(EnvNode::new())
     }
 
+    pub fn pop_node(&mut self) {
+        self.stack.pop();
+    }
+
+    // FIXME: Если переменная переприсваивается в локальной области видимости
+    // Это должна быть ошибка
     pub fn define(&mut self, name: String, value: Value) {
-        self.values.insert(name, value);
+        self.stack.last_mut().unwrap().define(name, value)
     }
 
-    pub fn get(&self, name: Token) -> Result<Value, RuntimeError> {
-        if self.values.contains_key(&name.lexeme) {
-            Ok(self.values.get(&name.lexeme).cloned().unwrap())
-        } else if self.enclosing.is_some() {
-            self.enclosing.as_ref().unwrap().borrow_mut().get(name)
-        } else {
-            Err(RuntimeError {
-                msg: format!("Undefined variable '{}'", name.lexeme),
-                token: name,
-            })
+    pub fn get(&self, name: &Token) -> Result<Value, RuntimeError> {
+        for env in self.stack.iter().rev() {
+            match env.get(&name.lexeme) {
+                Some(v) => return Ok(v.clone()),
+                None => (),
+            }
         }
-        
 
-        // if self.enclosing.is_some() {
-        //     return self.enclosing.as_ref().unwrap().get(name);
-        // }
-
-        // Err(RuntimeError {
-        //     msg: format!("Undefined variable '{}'", name.lexeme),
-        //     token: name,
-        // })
-
-        // todo!()
-        // self.values
-        //     .get(&name.lexeme)
-        //     .cloned()
-        //     .ok_or(RuntimeError {
-        //         msg: format!("Undefined variable '{}'", name.lexeme),
-        //         token: name,
-        //     })
+        Err(RuntimeError {
+            msg: format!("Undefined variable '{}'", name.lexeme),
+            token: TokenInfo::from(name),
+        })
     }
 
-    pub fn assign(&mut self, name: Token, value: Value) -> Result<(), RuntimeError> {
-        if let Some(v) = self.values.get_mut(&name.lexeme) {
-            *v = value;
-            Ok(())
-        } else if self.enclosing.is_some() {
-            self.enclosing.as_ref().unwrap().borrow_mut().assign(name, value)
-        } else {
-            Err(RuntimeError {
-                msg: format!("Undefined variable '{}'", name.lexeme),
-                token: name,
-            })
+    pub fn assign(&mut self, name: &Token, value: &Value) -> Result<(), RuntimeError> {
+        for env in self.stack.iter_mut().rev() {
+            match env.assign(&name.lexeme, value) {
+                Some(_) => return Ok(()),
+                None => (),
+            }
         }
 
-        // if let None = self.values.get_mut(&name.lexeme).map(|v| *v = value) {
+        Err(RuntimeError {
+            msg: format!("Undefined variable '{}'", name.lexeme),
+            token: TokenInfo::from(name),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+struct EnvNode {
+    vars: HashMap<String, Value>,
+}
+
+impl EnvNode {
+    fn new() -> Self {
+        Self {
+            vars: HashMap::new(),
+        }
+    }
+
+    fn define(&mut self, name: String, value: Value) {
+        self.vars.insert(name, value);
+    }
+
+    fn get(&self, name: &str) -> Option<&Value> {
+        self.vars.get(name)
+
+        // if self.values.borrow().contains_key(&name.lexeme) {
+        //     Ok(self.values.borrow_mut().get(&name.lexeme).cloned().unwrap())
+        // } else if self.parent.is_some() {
+        //     self.parent.as_ref().unwrap().get(name)
+        // } else {
         //     Err(RuntimeError {
         //         msg: format!("Undefined variable '{}'", name.lexeme),
         //         token: name,
         //     })
-        // } else {
+        // }
+    }
+
+    fn assign(&mut self, name: &str, value: &Value) -> Option<()> {
+        if self.vars.contains_key(name) {
+            self.vars.get_mut(name)
+                .map(|v| *v = value.clone());
+            Some(())
+        } else {
+            None
+        }
+
+        // if let Some(v) = self.values.borrow_mut().get_mut(&name.lexeme) {
+        //     *v = value;
         //     Ok(())
+        // } else if self.parent.is_some() {
+        //     self.parent.as_ref().unwrap().assign(name, value)
+        // } else {
+        //     Err(RuntimeError {
+        //         msg: format!("Undefined variable '{}'", name.lexeme),
+        //         token: name,
+        //     })
         // }
     }
 }

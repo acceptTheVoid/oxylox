@@ -17,7 +17,7 @@ impl Parser {
         Self { tokens, cur: 0 }
     }
 
-    pub fn parse(&mut self) -> Result<Vec<Stmt>, ParseError> {
+    pub fn parse(&mut self) -> Result<Vec<Stmt>, Vec<ParseError>> {
         let mut statements = vec![];
         let mut errors = vec![];
 
@@ -31,7 +31,11 @@ impl Parser {
             }
         }
 
-        Ok(statements)
+        if errors.is_empty() {
+            Ok(statements)
+        } else {
+            Err(errors)
+        }
     }
 
     fn is_at_end(&self) -> bool {

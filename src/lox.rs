@@ -73,7 +73,11 @@ impl Lox {
                         // let mut printer = crate::ast::ast_printer::AstPrint;
                         // println!("{}", printer.print(&stmt));
                     }
-                    Err(e) => self.parse_error(&e.token, &e.msg),
+                    Err(e) => {
+                        for e in e {
+                            self.parse_error(&e.token, &e.msg)
+                        }
+                    },
                 };
             }
             Err((line, msg)) => self.scan_error(line, &msg),

@@ -6,6 +6,8 @@ use crate::{
 
 pub type ScanResult = Result<Vec<Token>, (usize, String)>;
 
+// TODO: ПОЧИНИ UTF-8 СИМВОЛЫ ЕПТА
+// Это не так сложно
 pub struct Scanner<'a> {
     source: &'a str,
     tokens: Vec<Token>,
@@ -135,7 +137,10 @@ impl<'a> Scanner<'a> {
         while let Some(ch) = self.peek() {
             match ch {
                 '"' => break,
-                '\n' => self.line += 1,
+                '\n' => {
+                    self.line += 1;
+                    self.advance();
+                },
                 _ => {
                     self.advance();
                 }
