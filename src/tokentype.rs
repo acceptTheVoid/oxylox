@@ -12,6 +12,7 @@ pub enum TokenType {
     Minus,
     Plus,
     Semicolon,
+    Percent,
     Slash,
     Star,
 

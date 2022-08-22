@@ -62,6 +62,7 @@ impl<'a> Scanner<'a> {
             '+' => self.add_token(Plus),
             ';' => self.add_token(Semicolon),
             '*' => self.add_token(Star),
+            '%' => self.add_token(Percent),
             '!' => {
                 let r#match = self.r#match('=');
                 self.add_token(if r#match { BangEq } else { Bang })

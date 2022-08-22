@@ -5,7 +5,7 @@ use super::Expr;
 #[derive(Debug)]
 pub enum Stmt {
     Expr(Expr),
-    Print(Expr),
+    Print(Vec<Expr>),
     Var {
         name: Token,
         initializer: Expr,

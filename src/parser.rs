@@ -187,9 +187,18 @@ impl Parser {
     }
 
     fn print_statement(&mut self) -> Result<Stmt, ParseError> {
-        let val = self.expression()?;
+        let mut exprs = vec![];
+        loop {
+            exprs.push(self.expression()?);
+            if self.check(Semicolon) {
+                break;
+            }
+
+            self.consume(Comma, "Expect ',' between expressions")?;
+        }
+        // let val = self.expression()?;
         self.consume(Semicolon, "Expect ';' after value")?;
-        Ok(Stmt::Print(val))
+        Ok(Stmt::Print(exprs))
     }
 
     fn while_statement(&mut self) -> Result<Stmt, ParseError> {
@@ -309,7 +318,7 @@ impl Parser {
     fn factor(&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.unary()?;
 
-        while self.match_any(&[Slash, Star]) {
+        while self.match_any(&[Slash, Star, Percent]) {
             let op = self.previous().clone();
             let right = self.unary()?;
             expr = Expr::Binary {

@@ -13,7 +13,11 @@ impl Visitor for AstPrint {
     fn visit_statement(&mut self, stmt: &Stmt) -> Self::Output {
         match stmt {
             Stmt::Expr(expr) => self.visit_expression(expr),
-            Stmt::Print(expr) => format!("(print {})", self.visit_expression(expr)),
+            #[allow(unused)]
+            Stmt::Print(expr) => {
+                todo!()
+                // format!("(print {})", self.visit_expression(expr))
+            },
             Stmt::Var { name, initializer } => {
                 format!("({} {})", name.lexeme, self.visit_expression(initializer))
             }

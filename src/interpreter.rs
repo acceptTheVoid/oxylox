@@ -18,8 +18,12 @@ impl Visitor for Interpreter {
             Stmt::Expr(expr) => {
                 self.visit_expression(expr)?;
             }
-            Stmt::Print(expr) => {
-                let res = self.visit_expression(expr)?;
+            Stmt::Print(exprs) => {
+                let mut res = String::new();
+                for expr in exprs {
+                    res += &self.visit_expression(expr)?.to_string();
+                }
+                // let res = self.visit_expression(expr)?;
                 println!("{res}")
             }
             Stmt::Var { name, initializer } => {
@@ -86,6 +90,7 @@ impl Visitor for Interpreter {
                     TokenType::LessEq => self.less_eq(left, right, op),
                     TokenType::BangEq => Ok(Value::Bool(!left.eq(&right))),
                     TokenType::EqEq => Ok(Value::Bool(left.eq(&right))),
+                    TokenType::Percent => self.percent(left, right, op),
                     _ => unreachable!(),
                 }
             }
@@ -162,6 +167,13 @@ impl Interpreter {
     fn slash(&self, l: Value, r: Value, op: Token) -> Result<Value, RuntimeError> {
         match (l, r) {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Number(l / r)),
+            _ => Err(RuntimeError::two_number_op_err(&op)),
+        }
+    }
+
+    fn percent(&self, l: Value, r: Value, op: Token) -> Result<Value, RuntimeError> {
+        match (l, r) {
+            (Value::Number(l), Value::Number(r)) => Ok(Value::Number(l % r)),
             _ => Err(RuntimeError::two_number_op_err(&op)),
         }
     }
