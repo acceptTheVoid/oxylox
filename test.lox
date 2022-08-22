@@ -1,8 +1,9 @@
-var hours = 22;
-var minutes = 25;
-var res = 60 * 24;
+var a = "a";
 
-minutes = minutes + hours * 60;
-res = res - minutes;
-
-print "Hours: ", res / 60, "; Minutes: ", res % 60, ";";
+{
+	var a = "A";
+	var b = "b";
+	print a, " ", b;
+	var b = "B";
+	print b;
+}

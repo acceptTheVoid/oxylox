@@ -8,13 +8,15 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct Environment {
+    global: EnvNode,
     stack: Vec<EnvNode>,
 }
 
 impl Environment {
     pub fn new() -> Self {
         Self {
-            stack: vec![EnvNode::new()],
+            global: EnvNode::new(),
+            stack: vec![],
         }
     }
 
@@ -26,10 +28,22 @@ impl Environment {
         self.stack.pop();
     }
 
-    // FIXME: Если переменная переприсваивается в локальной области видимости
-    // Это должна быть ошибка
-    pub fn define(&mut self, name: String, value: Value) {
-        self.stack.last_mut().unwrap().define(name, value)
+    pub fn define(&mut self, name: &Token, value: Value) -> Result<(), RuntimeError> {
+        match self.stack.last_mut() {
+            Some(env) => {
+                match env.define(name.lexeme.to_string(), value) {
+                    None => Ok(()),
+                    Some(_) => Err(RuntimeError {
+                        token: TokenInfo::from(name),
+                        msg: format!("Redefined variable '{}'", name.lexeme),
+                    }),
+                }
+            }, 
+            None => {
+                self.global.define(name.lexeme.to_string(), value);
+                Ok(())
+            },
+        }
     }
 
     pub fn get(&self, name: &Token) -> Result<Value, RuntimeError> {
@@ -40,10 +54,13 @@ impl Environment {
             }
         }
 
-        Err(RuntimeError {
-            msg: format!("Undefined variable '{}'", name.lexeme),
-            token: TokenInfo::from(name),
-        })
+        match self.global.get(&name.lexeme) {
+            Some(v) => Ok(v.clone()),
+            None => Err(RuntimeError {
+                msg: format!("Undefined variable '{}'", name.lexeme),
+                token: TokenInfo::from(name),
+            }),
+        }
     }
 
     pub fn assign(&mut self, name: &Token, value: &Value) -> Result<(), RuntimeError> {
@@ -73,8 +90,8 @@ impl EnvNode {
         }
     }
 
-    fn define(&mut self, name: String, value: Value) {
-        self.vars.insert(name, value);
+    fn define(&mut self, name: String, value: Value) -> Option<Value> {
+        self.vars.insert(name, value)
     }
 
     fn get(&self, name: &str) -> Option<&Value> {

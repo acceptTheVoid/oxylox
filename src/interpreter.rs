@@ -28,7 +28,7 @@ impl Visitor for Interpreter {
             }
             Stmt::Var { name, initializer } => {
                 let val = self.visit_expression(initializer)?;
-                self.environment.define(name.lexeme.to_string(), val);
+                self.environment.define(name, val)?;
             }
             Stmt::Block(statements) => {
                 self.environment.new_node();
