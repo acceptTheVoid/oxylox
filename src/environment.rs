@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 
-use crate::{interpreter::{RuntimeError, TokenInfo}, token::Token, value::Value};
+use crate::{
+    interpreter::{RuntimeError, TokenInfo},
+    token::Token,
+    value::Value,
+};
 
 #[derive(Debug, Clone)]
 pub struct Environment {
@@ -10,9 +14,7 @@ pub struct Environment {
 impl Environment {
     pub fn new() -> Self {
         Self {
-            stack: vec![
-                EnvNode::new(),
-            ],
+            stack: vec![EnvNode::new()],
         }
     }
 
@@ -92,8 +94,7 @@ impl EnvNode {
 
     fn assign(&mut self, name: &str, value: &Value) -> Option<()> {
         if self.vars.contains_key(name) {
-            self.vars.get_mut(name)
-                .map(|v| *v = value.clone());
+            self.vars.get_mut(name).map(|v| *v = value.clone());
             Some(())
         } else {
             None

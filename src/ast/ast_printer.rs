@@ -25,6 +25,18 @@ impl Visitor for AstPrint {
                 res.push('}');
                 res
             }
+            #[allow(unused)]
+            Stmt::If {
+                cond,
+                then,
+                else_stmt,
+            } => {
+                todo!()
+            }
+            #[allow(unused)]
+            Stmt::While { cond, body } => {
+                todo!()
+            }
         }
     }
 
@@ -44,6 +56,10 @@ impl Visitor for AstPrint {
             Expr::Variable(name) => format!("{}", name.lexeme),
             Expr::Assign { name, val } => {
                 format!("(assign {} {})", name.lexeme, self.visit_expression(val))
+            }
+            #[allow(unused)]
+            Expr::Logical { left, op, right } => {
+                todo!()
             }
         }
     }

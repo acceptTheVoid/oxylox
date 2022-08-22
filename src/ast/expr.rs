@@ -15,6 +15,11 @@ pub enum Expr {
     },
     /// Contains name of the variable
     Variable(Token),
+    Logical {
+        left: Box<Expr>,
+        op: Token,
+        right: Box<Expr>,
+    },
     Assign {
         name: Token,
         val: Box<Expr>,

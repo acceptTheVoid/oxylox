@@ -92,8 +92,7 @@ impl<'a> Scanner<'a> {
             '"' => self.string()?,
             d if d.is_ascii_digit() => self.number(),
             i if is_alpha(i) => self.identifier(),
-            _ch => {
-                // dbg!(_ch);
+            _ => {
                 return Err((self.line, "Unexpected character".to_string()));
             }
         }
@@ -140,7 +139,7 @@ impl<'a> Scanner<'a> {
                 '\n' => {
                     self.line += 1;
                     self.advance();
-                },
+                }
                 _ => {
                     self.advance();
                 }

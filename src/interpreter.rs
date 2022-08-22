@@ -32,6 +32,25 @@ impl Visitor for Interpreter {
                 self.environment.pop_node();
                 res?;
             }
+            Stmt::If {
+                cond,
+                then,
+                else_stmt,
+            } => {
+                let cond = self.visit_expression(cond)?;
+                if self.is_truthy(&cond) {
+                    self.visit_statement(then)?;
+                } else if else_stmt.is_some() {
+                    self.visit_statement(&else_stmt.as_ref().unwrap())?;
+                }
+            }
+            Stmt::While { cond, body } => {
+                loop {
+                    let cond = self.visit_expression(cond)?;
+                    if !self.is_truthy(&cond) { break; }
+                    self.visit_statement(body)?;
+                }
+            }
         };
 
         Ok(Value::Nil)
@@ -75,6 +94,17 @@ impl Visitor for Interpreter {
                 let val = self.visit_expression(val)?;
                 self.environment.assign(&name, &val)?;
                 Ok(val)
+            }
+            Expr::Logical { left, op, right } => {
+                let left = self.visit_expression(left)?;
+
+                if op.r#type == TokenType::Or {
+                    if self.is_truthy(&left) { return Ok(left) }
+                } else {
+                    if !self.is_truthy(&left) { return Ok(left) }
+                }
+
+                Ok(self.visit_expression(right)?)
             }
         }
     }
@@ -175,7 +205,7 @@ impl Interpreter {
 #[derive(Debug)]
 pub struct TokenInfo {
     pub lexeme: String,
-    pub line: usize,   
+    pub line: usize,
 }
 
 impl From<&Token> for TokenInfo {

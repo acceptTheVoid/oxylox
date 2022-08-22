@@ -77,7 +77,7 @@ impl Lox {
                         for e in e {
                             self.parse_error(&e.token, &e.msg)
                         }
-                    },
+                    }
                 };
             }
             Err((line, msg)) => self.scan_error(line, &msg),

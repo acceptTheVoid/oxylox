@@ -6,6 +6,18 @@ use super::Expr;
 pub enum Stmt {
     Expr(Expr),
     Print(Expr),
-    Var { name: Token, initializer: Expr },
+    Var {
+        name: Token,
+        initializer: Expr,
+    },
     Block(Vec<Stmt>),
+    If {
+        cond: Expr,
+        then: Box<Stmt>,
+        else_stmt: Option<Box<Stmt>>,
+    },
+    While {
+        cond: Expr,
+        body: Box<Stmt>,
+    }
 }
