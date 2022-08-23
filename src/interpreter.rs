@@ -1,17 +1,23 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{
     ast::{stmt::Stmt, visitor::Visitor, Expr},
     environment::Environment,
+    error::Error,
+    function::Function,
+    lox_callable::Callable,
     token::Token,
     tokentype::TokenType,
     value::Value,
 };
 
 pub struct Interpreter {
-    environment: Environment,
+    pub globals: Rc<RefCell<Environment>>,
+    environment: Rc<RefCell<Environment>>,
 }
 
 impl Visitor for Interpreter {
-    type Output = Result<Value, RuntimeError>;
+    type Output = Result<Value, Error>;
 
     fn visit_statement(&mut self, stmt: &Stmt) -> Self::Output {
         match stmt {
@@ -23,18 +29,15 @@ impl Visitor for Interpreter {
                 for expr in exprs {
                     res += &self.visit_expression(expr)?.to_string();
                 }
-                // let res = self.visit_expression(expr)?;
                 println!("{res}")
             }
             Stmt::Var { name, initializer } => {
                 let val = self.visit_expression(initializer)?;
-                self.environment.define(name, val)?;
+                self.environment.borrow_mut().define(name, val)?;
             }
             Stmt::Block(statements) => {
-                self.environment.new_node();
-                let res = self.execute_block(statements);
-                self.environment.pop_node();
-                res?;
+                let env = Rc::new(RefCell::new(Environment::from(&self.environment)));
+                self.execute_block(statements, env)?;
             }
             Stmt::If {
                 cond,
@@ -48,12 +51,27 @@ impl Visitor for Interpreter {
                     self.visit_statement(&else_stmt.as_ref().unwrap())?;
                 }
             }
-            Stmt::While { cond, body } => {
-                loop {
-                    let cond = self.visit_expression(cond)?;
-                    if !self.is_truthy(&cond) { break; }
-                    self.visit_statement(body)?;
+            Stmt::While { cond, body } => loop {
+                let cond = self.visit_expression(cond)?;
+                if !self.is_truthy(&cond) {
+                    break;
                 }
+                self.visit_statement(body)?;
+            },
+            Stmt::Function { name, params, body } => {
+                let fun = Function::LoxFun {
+                    name: name.into(),
+                    params: params.clone(),
+                    body: body.clone(),
+                    closure: Rc::clone(&self.environment),
+                };
+                let fun = Value::Fun(fun);
+                self.environment.borrow_mut().define(name, fun)?;
+            }
+            Stmt::Return { val, .. } => {
+                let val = self.visit_expression(val)?;
+
+                return Err(Error::Return(val));
             }
         };
 
@@ -69,7 +87,7 @@ impl Visitor for Interpreter {
 
                 match (op.r#type, &right) {
                     (TokenType::Minus, Value::Number(n)) => Ok(Value::Number(-n)),
-                    (TokenType::Minus, _) => Err(RuntimeError::number_op_err(&op)),
+                    (TokenType::Minus, _) => Err(RuntimeError::number_op_err(&op).into()),
                     (TokenType::Bang, _) => Ok(Value::Bool(!self.is_truthy(&right))),
                     _ => unreachable!(),
                 }
@@ -93,23 +111,62 @@ impl Visitor for Interpreter {
                     TokenType::Percent => self.percent(left, right, op),
                     _ => unreachable!(),
                 }
+                .map_err(|re| re.into())
             }
-            Expr::Variable(name) => self.environment.get(&name),
+            Expr::Variable(name) => self.environment.borrow().get(&name),
             Expr::Assign { name, val } => {
                 let val = self.visit_expression(val)?;
-                self.environment.assign(&name, &val)?;
+                self.environment.borrow_mut().assign(&name, &val)?;
                 Ok(val)
             }
             Expr::Logical { left, op, right } => {
                 let left = self.visit_expression(left)?;
 
                 if op.r#type == TokenType::Or {
-                    if self.is_truthy(&left) { return Ok(left) }
+                    if self.is_truthy(&left) {
+                        return Ok(left);
+                    }
                 } else {
-                    if !self.is_truthy(&left) { return Ok(left) }
+                    if !self.is_truthy(&left) {
+                        return Ok(left);
+                    }
                 }
 
                 Ok(self.visit_expression(right)?)
+            }
+            Expr::Call {
+                callee,
+                paren,
+                args,
+            } => {
+                let callee = self.visit_expression(callee)?;
+
+                let mut arguments = vec![];
+                for arg in args {
+                    arguments.push(self.visit_expression(arg)?);
+                }
+
+                if let Value::Fun(fun) = callee {
+                    if arguments.len() != fun.arity() {
+                        Err(RuntimeError {
+                            token: paren.into(),
+                            msg: format!(
+                                "Expected {} arguments but got {}",
+                                fun.arity(),
+                                arguments.len()
+                            ),
+                        }
+                        .into())
+                    } else {
+                        fun.call(self, &arguments)
+                    }
+                } else {
+                    Err(RuntimeError {
+                        token: paren.into(),
+                        msg: "Can only call functions and classes".into(),
+                    }
+                    .into())
+                }
             }
         }
     }
@@ -117,12 +174,41 @@ impl Visitor for Interpreter {
 
 impl Interpreter {
     pub fn new() -> Self {
+        let clock = |_: &[Value]| -> Value {
+            match std::time::UNIX_EPOCH.elapsed() {
+                Ok(d) => Value::Number(d.as_secs_f64()),
+                Err(e) => panic!("{e}"),
+            }
+        };
+
+        let clock = Function::Native {
+            arity: 0,
+            body: Box::new(clock),
+        };
+        let clock = Value::Fun(clock);
+
+        let globals = Rc::new(RefCell::new(Environment::new()));
+        globals
+            .borrow_mut()
+            .define(
+                &Token {
+                    r#type: TokenType::Identifier,
+                    lexeme: "clock".into(),
+                    literal: Value::Nil,
+                    line: 0,
+                },
+                clock,
+            )
+            .unwrap();
+
+        let environment = Rc::clone(&globals);
         Self {
-            environment: Environment::new(),
+            globals,
+            environment,
         }
     }
 
-    pub fn interpret(&mut self, stmt: Vec<Stmt>) -> Result<(), RuntimeError> {
+    pub fn interpret(&mut self, stmt: Vec<Stmt>) -> Result<(), Error> {
         for stmt in stmt {
             self.visit_statement(&stmt)?;
         }
@@ -130,12 +216,23 @@ impl Interpreter {
         Ok(())
     }
 
-    fn execute_block(&mut self, statements: &[Stmt]) -> Result<Value, RuntimeError> {
-        for stmt in statements {
-            self.visit_statement(stmt)?;
-        }
+    pub fn execute_block(
+        &mut self,
+        statements: &[Stmt],
+        env: Rc<RefCell<Environment>>,
+    ) -> Result<Value, Error> {
+        let prev = Rc::clone(&self.environment);
+        let steps = || -> Result<Value, Error> {
+            self.environment = env;
+            for stmt in statements {
+                self.visit_statement(stmt)?;
+            }
 
-        Ok(Value::Nil)
+            Ok(Value::Nil)
+        };
+        let res = steps();
+        self.environment = prev;
+        res
     }
 
     fn is_truthy(&self, val: &Value) -> bool {
@@ -214,7 +311,7 @@ impl Interpreter {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TokenInfo {
     pub lexeme: String,
     pub line: usize,

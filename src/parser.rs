@@ -77,9 +77,40 @@ impl Parser {
     fn declaration(&mut self) -> Result<Stmt, ParseError> {
         if self.match_any(&[Var]) {
             self.var_declaration()
+        } else if self.match_any(&[Fun]) {
+            self.function_declaration("function")
         } else {
             self.statement()
         }
+    }
+
+    fn function_declaration(&mut self, kind: &str) -> Result<Stmt, ParseError> {
+        let name = self
+            .consume(Identifier, &format!("Expect {kind} name"))?
+            .clone();
+        self.consume(LeftParen, &format!("Expect '(' after {kind} name"))?;
+
+        let mut params = vec![];
+        if !self.check(RightParen) {
+            loop {
+                if params.len() >= 255 {
+                    return Err(ParseError {
+                        token: self.peek().clone(),
+                        msg: "Can't have more than 255 parametres".into(),
+                    });
+                }
+
+                params.push(self.consume(Identifier, "Expect parameter name")?.clone());
+                if !self.match_any(&[Comma]) {
+                    break;
+                }
+            }
+        }
+        self.consume(RightParen, "Expect ')' after parameters")?;
+
+        self.consume(LeftBrace, &format!("Expect '{{' before {kind} body"))?;
+        let body = self.block()?;
+        Ok(Stmt::Function { name, params, body })
     }
 
     fn var_declaration(&mut self) -> Result<Stmt, ParseError> {
@@ -106,6 +137,10 @@ impl Parser {
             return self.print_statement();
         }
 
+        if self.match_any(&[Return]) {
+            return self.return_statement();
+        }
+
         if self.match_any(&[While]) {
             return self.while_statement();
         }
@@ -115,6 +150,17 @@ impl Parser {
         }
 
         self.expression_statement()
+    }
+
+    fn return_statement(&mut self) -> Result<Stmt, ParseError> {
+        let keyword = self.previous().clone();
+        let mut val = Expr::Literal(Value::Nil);
+        if !self.check(Semicolon) {
+            val = self.expression()?;
+        }
+
+        self.consume(Semicolon, "Expect ';' after return value")?;
+        Ok(Stmt::Return { keyword, val })
     }
 
     fn for_statement(&mut self) -> Result<Stmt, ParseError> {
@@ -147,8 +193,13 @@ impl Parser {
             body = Stmt::Block(vec![body, Stmt::Expr(inc.unwrap())]);
         }
 
-        if cond.is_none() { cond = Some(Expr::Literal(Value::Bool(true))); }
-        body = Stmt::While { cond: cond.unwrap(), body: Box::new(body) };
+        if cond.is_none() {
+            cond = Some(Expr::Literal(Value::Bool(true)));
+        }
+        body = Stmt::While {
+            cond: cond.unwrap(),
+            body: Box::new(body),
+        };
 
         if init.is_some() {
             body = Stmt::Block(vec![init.unwrap(), body]);
@@ -249,7 +300,11 @@ impl Parser {
         while self.match_any(&[Or]) {
             let op = self.previous().clone();
             let right = Box::new(self.equality()?);
-            expr = Expr::Logical { left: Box::new(expr), op, right };
+            expr = Expr::Logical {
+                left: Box::new(expr),
+                op,
+                right,
+            };
         }
 
         Ok(expr)
@@ -261,7 +316,11 @@ impl Parser {
         while self.match_any(&[And]) {
             let op = self.previous().clone();
             let right = Box::new(self.equality()?);
-            expr = Expr::Logical { left: Box::new(expr), op, right };
+            expr = Expr::Logical {
+                left: Box::new(expr),
+                op,
+                right,
+            };
         }
 
         Ok(expr)
@@ -341,7 +400,49 @@ impl Parser {
             });
         }
 
-        self.primary()
+        self.call()
+    }
+
+    fn call(&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.primary()?;
+
+        loop {
+            if self.match_any(&[LeftParen]) {
+                expr = self.finish_call(expr)?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(expr)
+    }
+
+    fn finish_call(&mut self, callee: Expr) -> Result<Expr, ParseError> {
+        let mut args = vec![];
+        if !self.check(RightParen) {
+            loop {
+                if args.len() >= 255 {
+                    return Err(ParseError {
+                        token: self.peek().clone(),
+                        msg: "Can't have more than 255 arguments".into(),
+                    });
+                }
+
+                args.push(self.expression()?);
+                if !self.match_any(&[Comma]) {
+                    break;
+                }
+            }
+        }
+
+        let paren = self
+            .consume(RightParen, "Expect ')' after arguments")?
+            .clone();
+        Ok(Expr::Call {
+            callee: Box::new(callee),
+            paren,
+            args,
+        })
     }
 
     fn primary(&mut self) -> Result<Expr, ParseError> {

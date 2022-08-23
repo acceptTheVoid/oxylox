@@ -1,9 +1,12 @@
+use crate::function::Function;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Nil,
     Number(f64),
     String(String),
     Bool(bool),
+    Fun(Function),
 }
 
 impl Eq for Value {}
@@ -17,6 +20,10 @@ impl std::fmt::Display for Value {
             Number(n) => n.to_string(),
             String(s) => s.to_string(),
             Bool(b) => b.to_string(),
+            Fun(fun) => match fun {
+                Function::Native { .. } => format!("<native fun>"),
+                Function::LoxFun { name, .. } => format!("<lox fun '{}'>", name.lexeme),
+            },
         };
         write!(f, "{to_write}")
     }

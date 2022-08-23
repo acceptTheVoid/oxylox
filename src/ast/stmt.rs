@@ -2,7 +2,7 @@ use crate::token::Token;
 
 use super::Expr;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Stmt {
     Expr(Expr),
     Print(Vec<Expr>),
@@ -19,5 +19,14 @@ pub enum Stmt {
     While {
         cond: Expr,
         body: Box<Stmt>,
-    }
+    },
+    Function {
+        name: Token,
+        params: Vec<Token>,
+        body: Vec<Stmt>,
+    },
+    Return {
+        keyword: Token,
+        val: Expr,
+    },
 }

@@ -1,6 +1,7 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
+    error::Error,
     interpreter::{RuntimeError, TokenInfo},
     token::Token,
     value::Value,
@@ -8,125 +9,80 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct Environment {
-    global: EnvNode,
-    stack: Vec<EnvNode>,
+    enclosing: Option<Rc<RefCell<Environment>>>,
+    values: HashMap<String, Value>,
 }
 
 impl Environment {
     pub fn new() -> Self {
         Self {
-            global: EnvNode::new(),
-            stack: vec![],
+            enclosing: None,
+            values: HashMap::new(),
         }
     }
 
-    pub fn new_node(&mut self) {
-        self.stack.push(EnvNode::new())
-    }
-
-    pub fn pop_node(&mut self) {
-        self.stack.pop();
-    }
-
-    pub fn define(&mut self, name: &Token, value: Value) -> Result<(), RuntimeError> {
-        match self.stack.last_mut() {
-            Some(env) => {
-                match env.define(name.lexeme.to_string(), value) {
-                    None => Ok(()),
-                    Some(_) => Err(RuntimeError {
-                        token: TokenInfo::from(name),
-                        msg: format!("Redefined variable '{}'", name.lexeme),
-                    }),
-                }
-            }, 
-            None => {
-                self.global.define(name.lexeme.to_string(), value);
-                Ok(())
-            },
-        }
-    }
-
-    pub fn get(&self, name: &Token) -> Result<Value, RuntimeError> {
-        for env in self.stack.iter().rev() {
-            match env.get(&name.lexeme) {
-                Some(v) => return Ok(v.clone()),
-                None => (),
-            }
-        }
-
-        match self.global.get(&name.lexeme) {
-            Some(v) => Ok(v.clone()),
-            None => Err(RuntimeError {
-                msg: format!("Undefined variable '{}'", name.lexeme),
-                token: TokenInfo::from(name),
-            }),
-        }
-    }
-
-    pub fn assign(&mut self, name: &Token, value: &Value) -> Result<(), RuntimeError> {
-        for env in self.stack.iter_mut().rev() {
-            match env.assign(&name.lexeme, value) {
-                Some(_) => return Ok(()),
-                None => (),
-            }
-        }
-
-        Err(RuntimeError {
-            msg: format!("Undefined variable '{}'", name.lexeme),
-            token: TokenInfo::from(name),
-        })
-    }
-}
-
-#[derive(Debug, Clone)]
-struct EnvNode {
-    vars: HashMap<String, Value>,
-}
-
-impl EnvNode {
-    fn new() -> Self {
+    pub fn from(enclosing: &Rc<RefCell<Environment>>) -> Self {
         Self {
-            vars: HashMap::new(),
+            enclosing: Some(Rc::clone(enclosing)),
+            values: HashMap::new(),
         }
     }
 
-    fn define(&mut self, name: String, value: Value) -> Option<Value> {
-        self.vars.insert(name, value)
-    }
-
-    fn get(&self, name: &str) -> Option<&Value> {
-        self.vars.get(name)
-
-        // if self.values.borrow().contains_key(&name.lexeme) {
-        //     Ok(self.values.borrow_mut().get(&name.lexeme).cloned().unwrap())
-        // } else if self.parent.is_some() {
-        //     self.parent.as_ref().unwrap().get(name)
-        // } else {
-        //     Err(RuntimeError {
-        //         msg: format!("Undefined variable '{}'", name.lexeme),
-        //         token: name,
-        //     })
-        // }
-    }
-
-    fn assign(&mut self, name: &str, value: &Value) -> Option<()> {
-        if self.vars.contains_key(name) {
-            self.vars.get_mut(name).map(|v| *v = value.clone());
-            Some(())
+    pub fn define(&mut self, name: &Token, value: Value) -> Result<(), Error> {
+        if self.enclosing.is_some() && self.values.contains_key(&name.lexeme) {
+            Err(RuntimeError {
+                token: name.into(),
+                msg: format!("You cannot redefine local variables"),
+            }
+            .into())
         } else {
-            None
+            self.values.insert(name.lexeme.to_string(), value);
+            Ok(())
         }
+    }
 
-        // if let Some(v) = self.values.borrow_mut().get_mut(&name.lexeme) {
-        //     *v = value;
-        //     Ok(())
-        // } else if self.parent.is_some() {
-        //     self.parent.as_ref().unwrap().assign(name, value)
-        // } else {
-        //     Err(RuntimeError {
-        //         msg: format!("Undefined variable '{}'", name.lexeme),
-        //         token: name,
-        //     })
-        // }
+    pub fn get(&self, name: &Token) -> Result<Value, Error> {
+        let key = &name.lexeme;
+
+        if let Some(value) = self.values.get(key) {
+            Ok(value.clone())
+        } else {
+            if let Some(ref enclosing) = self.enclosing {
+                enclosing.borrow().get(name)
+            } else {
+                Err(RuntimeError {
+                    msg: format!("Undefined variable '{key}'"),
+                    token: TokenInfo::from(name),
+                }
+                .into())
+            }
+        }
+    }
+
+    pub fn assign(&mut self, name: &Token, value: &Value) -> Result<(), Error> {
+        let key = &name.lexeme;
+        if self.values.contains_key(key) {
+            self.values.insert(key.clone(), value.clone());
+            Ok(())
+        } else {
+            if let Some(ref enclosing) = self.enclosing {
+                enclosing.borrow_mut().assign(name, value)
+            } else {
+                Err(RuntimeError {
+                    msg: format!("Undefined variable '{}'", name.lexeme),
+                    token: TokenInfo::from(name),
+                }
+                .into())
+            }
+        }
+    }
+}
+
+impl From<HashMap<String, Value>> for Environment {
+    fn from(globals: HashMap<String, Value>) -> Self {
+        Self {
+            enclosing: None,
+            values: globals,
+        }
     }
 }

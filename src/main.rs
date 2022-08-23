@@ -1,9 +1,17 @@
 // #![allow(unused)]
 
+// TODO: Абсолютно необходимо исправить код
+// Очень много бесполезных данных тут болтается
+// На функцию run в Lox смотреть страшно
+// Потрать день хотя бы жить проще станет
+
 pub mod ast;
 pub mod environment;
+pub mod error;
+pub mod function;
 pub mod interpreter;
 pub mod lox;
+pub mod lox_callable;
 pub mod parser;
 pub mod scanner;
 pub mod test;

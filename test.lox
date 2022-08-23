@@ -1,9 +1,22 @@
-var a = "a";
-
-{
-	var a = "A";
-	var b = "b";
-	print a, " ", b;
-	var b = "B";
-	print b;
+fun make_fib() {
+	var a = 0;
+	var b = 1;
+	fun fib() {
+		var tmp = a;
+		a = b;
+		b = tmp + b;
+		return a;
+	}
+	return fib;
 }
+
+var fib = make_fib();
+print fib();
+print fib();
+print fib();
+print fib();
+print fib();
+print fib();
+print fib();
+print fib();
+print fib();

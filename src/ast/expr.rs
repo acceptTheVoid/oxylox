@@ -1,6 +1,6 @@
 use crate::{token::Token, value::Value};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     Binary {
         left: Box<Expr>,
@@ -23,5 +23,10 @@ pub enum Expr {
     Assign {
         name: Token,
         val: Box<Expr>,
+    },
+    Call {
+        callee: Box<Expr>,
+        paren: Token,
+        args: Vec<Expr>,
     },
 }

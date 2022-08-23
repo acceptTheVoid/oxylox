@@ -1,4 +1,5 @@
-use crate::interpreter::{Interpreter, RuntimeError};
+use crate::error::Error;
+use crate::interpreter::Interpreter;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
 use crate::token::Token;
@@ -96,8 +97,13 @@ impl Lox {
         }
     }
 
-    fn runtime_error(&mut self, error: RuntimeError) {
-        eprintln!("{}\n[line {}]", error.msg, error.token.line);
+    fn runtime_error(&mut self, error: Error) {
+        match error {
+            Error::RuntimeError(re) => {
+                eprintln!("{}\n[line {}]", re.msg, re.token.line);
+            }
+            Error::Return(_) => unreachable!(),
+        }
         self.had_runtime_error = true;
     }
 

@@ -11,13 +11,13 @@ impl Visitor for AstPrint {
     type Output = String;
 
     fn visit_statement(&mut self, stmt: &Stmt) -> Self::Output {
+        #[allow(unused)]
         match stmt {
             Stmt::Expr(expr) => self.visit_expression(expr),
-            #[allow(unused)]
             Stmt::Print(expr) => {
                 todo!()
                 // format!("(print {})", self.visit_expression(expr))
-            },
+            }
             Stmt::Var { name, initializer } => {
                 format!("({} {})", name.lexeme, self.visit_expression(initializer))
             }
@@ -29,7 +29,6 @@ impl Visitor for AstPrint {
                 res.push('}');
                 res
             }
-            #[allow(unused)]
             Stmt::If {
                 cond,
                 then,
@@ -37,14 +36,20 @@ impl Visitor for AstPrint {
             } => {
                 todo!()
             }
-            #[allow(unused)]
             Stmt::While { cond, body } => {
+                todo!()
+            }
+            Stmt::Function { name, params, body } => {
+                todo!()
+            }
+            Stmt::Return { keyword, val } => {
                 todo!()
             }
         }
     }
 
     fn visit_expression(&mut self, expr: &Expr) -> Self::Output {
+        #[allow(unused)]
         match expr {
             Expr::Literal(lit) => format!("{lit}"),
             Expr::Grouping(expr) => format!("(group {})", self.visit_expression(expr)),
@@ -61,8 +66,14 @@ impl Visitor for AstPrint {
             Expr::Assign { name, val } => {
                 format!("(assign {} {})", name.lexeme, self.visit_expression(val))
             }
-            #[allow(unused)]
             Expr::Logical { left, op, right } => {
+                todo!()
+            }
+            Expr::Call {
+                callee,
+                paren,
+                args,
+            } => {
                 todo!()
             }
         }
