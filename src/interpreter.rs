@@ -46,7 +46,7 @@ impl Visitor for Interpreter {
                 else_stmt,
             } => {
                 let cond = self.visit_expression(cond)?;
-                if self.is_truthy(&cond) {
+                if is_truthy(&cond) {
                     self.visit_statement(then)?;
                 } else if else_stmt.is_some() {
                     self.visit_statement(else_stmt.as_ref().unwrap())?;
@@ -54,7 +54,7 @@ impl Visitor for Interpreter {
             }
             Stmt::While { cond, body } => loop {
                 let cond = self.visit_expression(cond)?;
-                if !self.is_truthy(&cond) {
+                if !is_truthy(&cond) {
                     break;
                 }
                 self.visit_statement(body)?;
@@ -81,7 +81,7 @@ impl Visitor for Interpreter {
 
     fn visit_expression(&mut self, expr: &crate::ast::Expr) -> Self::Output {
         match expr {
-            Expr::Literal(val) => Ok(val.clone()), 
+            Expr::Literal(val) => Ok(val.clone()),
             Expr::Grouping(expr) => self.visit_expression(expr),
             Expr::Unary { op, right } => {
                 let right = self.visit_expression(right)?;
@@ -89,7 +89,7 @@ impl Visitor for Interpreter {
                 match (op.kind, &right) {
                     (TokenType::Minus, Value::Number(n)) => Ok(Value::Number(-n)),
                     (TokenType::Minus, _) => Err(RuntimeError::number_op_err(op).into()),
-                    (TokenType::Bang, _) => Ok(Value::Bool(!self.is_truthy(&right))),
+                    (TokenType::Bang, _) => Ok(Value::Bool(!is_truthy(&right))),
                     _ => unreachable!(),
                 }
             }
@@ -124,10 +124,10 @@ impl Visitor for Interpreter {
                 let left = self.visit_expression(left)?;
 
                 if op.kind == TokenType::Or {
-                    if self.is_truthy(&left) {
+                    if is_truthy(&left) {
                         return Ok(left);
                     }
-                } else if !self.is_truthy(&left) {
+                } else if !is_truthy(&left) {
                     return Ok(left);
                 }
 
@@ -173,31 +173,79 @@ impl Visitor for Interpreter {
 
 impl Interpreter {
     pub fn new() -> Self {
-        let clock = |_: &[Value]| -> Value {
+        let clock = |_: &[Value]| -> Result<Value, Error> {
             match std::time::UNIX_EPOCH.elapsed() {
-                Ok(d) => Value::Number(d.as_secs_f64()),
+                Ok(d) => Ok(Value::Number(d.as_secs_f64())),
                 Err(e) => panic!("{e}"),
             }
         };
 
-        let clock = Function::Native {
+        let num = |val: &[Value]| -> Result<Value, Error> {
+            match &val[0] {
+                Value::Number(n) => Ok(Value::Number(*n)),
+                Value::Bool(b) => Ok(if *b { Value::Number(1.) } else { Value::Number(0.) }),
+                Value::Nil => Ok(Value::Number(0.)),
+                Value::String(s) => {
+                    match s.parse() {
+                        Ok(n) => Ok(Value::Number(n)),
+                        Err(e) => Err(Error::NativeCallError(format!("{e}")))
+                    }
+                }
+                _ => Err(Error::NativeCallError(format!("{} cannot be parsed into number", val[0])))
+            }
+        };
+
+        let tpe = |val: &[Value]| -> Result<Value, Error> {
+            let tpe = match &val[0] {
+                Value::Nil => "nil".to_string(),
+                Value::Bool(_) => "bool".to_string(),
+                Value::Number(_) => "number".to_string(),
+                Value::String(_) => "string".to_string(),
+                Value::Fun(_) => format!("{}", &val[0]), 
+            };
+
+            Ok(Value::String(tpe))
+        };
+
+        let string = |val: &[Value]| -> Result<Value, Error> {
+            Ok(Value::String(val[0].to_string()))
+        };
+
+        let bool = |val: &[Value]| -> Result<Value, Error> {
+            Ok(Value::Bool(is_truthy(&val[0])))
+        };
+
+        let clock = Value::Fun(Function::Native {
             arity: 0,
             body: Box::new(clock),
-        };
-        let clock = Value::Fun(clock);
+        });
+
+        let num = Value::Fun(Function::Native {
+            arity: 1,
+            body: Box::new(num),
+        });
+
+        let string = Value::Fun(Function::Native {
+            arity: 1,
+            body: Box::new(string),
+        });
+
+        let bool = Value::Fun(Function::Native {
+            arity: 1,
+            body: Box::new(bool),
+        });
+
+        let tpe = Value::Fun(Function::Native {
+            arity: 1,
+            body: Box::new(tpe),
+        });
 
         let globals = Rc::new(RefCell::new(Environment::new()));
-        globals
-            .borrow_mut()
-            .define(
-                &TokenAstInfo {
-                    kind: TokenType::Identifier,
-                    name: Some("clock".into()),
-                    line: 0,
-                },
-                clock,
-            )
-            .unwrap();
+        globals.borrow_mut().define_native("clock", clock);
+        globals.borrow_mut().define_native("num", num);
+        globals.borrow_mut().define_native("str", string);
+        globals.borrow_mut().define_native("bool", bool);
+        globals.borrow_mut().define_native("type", tpe);
 
         let environment = Rc::clone(&globals);
         Self {
@@ -231,14 +279,6 @@ impl Interpreter {
         let res = steps();
         self.environment = prev;
         res
-    }
-
-    fn is_truthy(&self, val: &Value) -> bool {
-        match *val {
-            Value::Nil => false,
-            Value::Bool(b) => b,
-            _ => true,
-        }
     }
 
     fn plus(&self, l: Value, r: Value, op: &TokenAstInfo) -> Result<Value, RuntimeError> {
@@ -306,6 +346,14 @@ impl Interpreter {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Bool(l <= r)),
             _ => Err(RuntimeError::number_op_err(op)),
         }
+    }
+}
+
+fn is_truthy(val: &Value) -> bool {
+    match *val {
+        Value::Nil => false,
+        Value::Bool(b) => b,
+        _ => true,
     }
 }
 

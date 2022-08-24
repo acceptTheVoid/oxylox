@@ -41,13 +41,17 @@ impl Environment {
         }
     }
 
+    pub fn define_native(&mut self, name: &str, value: Value) {
+        self.values.insert(name.into(), value);
+    }
+
     pub fn get(&self, name: &TokenAstInfo) -> Result<Value, Error> {
         let key = name.name.as_ref().unwrap();
 
         if let Some(value) = self.values.get(key) {
             Ok(value.clone())
         } else if let Some(ref enclosing) = self.enclosing {
-            enclosing.borrow().get(name)  
+            enclosing.borrow().get(name)
         } else {
             Err(RuntimeError {
                 msg: format!("Undefined variable '{key}'"),

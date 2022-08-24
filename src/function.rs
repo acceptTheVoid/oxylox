@@ -9,11 +9,13 @@ use crate::{
     value::Value,
 };
 
+type NativeFun = Box<fn(&[Value]) -> Result<Value, Error>>;
+
 #[derive(Clone)]
 pub enum Function {
     Native {
         arity: usize,
-        body: Box<fn(&[Value]) -> Value>,
+        body: NativeFun,
     },
     LoxFun {
         name: TokenAstInfo,
@@ -26,7 +28,7 @@ pub enum Function {
 impl Callable<Result<Value, Error>> for Function {
     fn call(&self, interpreter: &mut Interpreter, args: &[Value]) -> Result<Value, Error> {
         match self {
-            Self::Native { body, .. } => Ok(body(args)),
+            Self::Native { body, .. } => Ok(body(args)?),
             Self::LoxFun {
                 params,
                 body,

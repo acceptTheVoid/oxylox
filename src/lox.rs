@@ -99,8 +99,13 @@ impl Lox {
                 }
             }
             Error::RuntimeError(RuntimeError { token, msg, .. }) => {
-                eprintln!("{msg}\n[line {}]", token.line)
+                eprintln!("{msg}\n[line {}]", token.line);
+                self.had_runtime_error = true;
             }
+            Error::NativeCallError(msg) => {
+                eprintln!("Error in native function: {msg}");
+                self.had_runtime_error = true;
+            },
             Error::Return(_) => unreachable!("Well, that shouldn't happen..."),
         }
     }

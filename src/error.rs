@@ -7,6 +7,7 @@ pub enum Error {
     ScannerError(ScanError),
     ParseError(ParseError),
     RuntimeError(RuntimeError),
+    NativeCallError(String),
     Return(Value),
 }
 
@@ -34,6 +35,7 @@ impl Display for Error {
             Self::RuntimeError(re) => write!(f, "{re}"),
             Self::Return(v) => write!(f, "{v}"),
             Self::ParseError(pe) => write!(f, "{pe}"),
+            Self::NativeCallError(msg) => write!(f, "{msg}"),
             Self::ScannerError(se) => write!(f, "{se}"),
         }
     }

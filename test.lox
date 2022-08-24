@@ -1,8 +1,1 @@
-/*
-print "(" + "" + ")";   // expect: ()
-print "a string"; // expect: a string
-/* 
-*/
-// Non-ASCII.
-print "A~¶Þॐஃ"; // expect: A~¶Þॐஃ
-*/
+print "Макс епта, когда спецификации к ШтирлицБрейну придумаем??";

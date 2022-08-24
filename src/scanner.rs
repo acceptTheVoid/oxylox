@@ -90,25 +90,7 @@ impl<'a> Scanner<'a> {
                         self.advance();
                     }
                 } else if self.r#match('*') {
-                    let mut depth = 1;
-                    while !self.is_at_end() {
-                        let peek = self.peek();
-                        let next = self.peek_next();
-                        if check_peek(peek, '*') && check_peek(next, '/') {
-                            if depth == 1 {
-                                self.advance();
-                                self.advance();
-                                break;
-                            } else {
-                                depth -= 1;
-                            }
-                        } else if check_peek(peek, '\n') {
-                            self.line += 1;
-                        } else if check_peek(peek, '/') && check_peek(next, '*') {
-                            depth += 1;
-                        }
-                        self.advance();
-                    }
+                    self.comment();
                 } else {
                     self.add_token(Slash)
                 }
@@ -118,10 +100,10 @@ impl<'a> Scanner<'a> {
             '"' => self.string()?,
             d if d.is_ascii_digit() => self.number(),
             i if is_alpha(i) => self.identifier(),
-            _ => {
+            ch => {
                 return Err(ScanError {
                     line: self.line,
-                    msg: "Unexpected character".into(),
+                    msg: format!("Unexpected character '{ch}'"),
                 }
                 .into())
             }
@@ -174,7 +156,8 @@ impl<'a> Scanner<'a> {
                     return Err(ScanError {
                         line: self.line,
                         msg: "Unterminated string".into(),
-                    }.into())
+                    }
+                    .into())
                 }
                 '\\' => {
                     self.advance();
@@ -183,21 +166,22 @@ impl<'a> Scanner<'a> {
                             '0' => '\0',
                             't' => '\t',
                             'n' => '\n',
-                            'r' => '\r',     
+                            'r' => '\r',
                             '\\' => '\\',
                             '"' => '"',
-                            ch => return Err(ScanError {
-                                line: self.line,
-                                msg: format!("Unsupported symbol '{ch}'"),
-                            }.into()),
+                            ch => {
+                                return Err(ScanError {
+                                    line: self.line,
+                                    msg: format!("Unsupported escape symbol '\\{ch}'"),
+                                }
+                                .into())
+                            }
                         }
                     } else {
                         break;
                     }
-                },
-                _ => {
-                    self.advance()
                 }
+                _ => self.advance(),
             })
         }
 
@@ -251,6 +235,28 @@ impl<'a> Scanner<'a> {
         };
 
         self.add_token(r#type);
+    }
+
+    fn comment(&mut self) {
+        let mut depth = 1;
+        while !self.is_at_end() {
+            let peek = self.peek();
+            let next = self.peek_next();
+            if check_peek(peek, '*') && check_peek(next, '/') {
+                if depth == 1 {
+                    self.advance();
+                    self.advance();
+                    break;
+                } else {
+                    depth -= 1;
+                }
+            } else if check_peek(peek, '\n') {
+                self.line += 1;
+            } else if check_peek(peek, '/') && check_peek(next, '*') {
+                depth += 1;
+            }
+            self.advance();
+        }
     }
 }
 
