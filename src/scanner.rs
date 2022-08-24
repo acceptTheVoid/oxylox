@@ -7,8 +7,7 @@ use crate::{
 
 pub type ScanResult = Result<Vec<Token>, Error>;
 
-// TODO: ПОЧИНИ UTF-8 СИМВОЛЫ ЕПТА
-// Это не так сложно
+// TODO: Лучше исправить работу со строками на работу с итератором `Chars`
 pub struct Scanner<'a> {
     source: &'a str,
     tokens: Vec<Token>,
@@ -88,6 +87,26 @@ impl<'a> Scanner<'a> {
             '/' => {
                 if self.r#match('/') {
                     while !check_peek(self.peek(), '\n') && !self.is_at_end() {
+                        self.advance();
+                    }
+                } else if self.r#match('*') {
+                    let mut depth = 1;
+                    while !self.is_at_end() {
+                        let peek = self.peek();
+                        let next = self.peek_next();
+                        if check_peek(peek, '*') && check_peek(next, '/') {
+                            if depth == 1 {
+                                self.advance();
+                                self.advance();
+                                break;
+                            } else {
+                                depth -= 1;
+                            }
+                        } else if check_peek(peek, '\n') {
+                            self.line += 1;
+                        } else if check_peek(peek, '/') && check_peek(next, '*') {
+                            depth += 1;
+                        }
                         self.advance();
                     }
                 } else {
