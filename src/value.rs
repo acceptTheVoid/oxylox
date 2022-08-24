@@ -23,7 +23,7 @@ impl std::fmt::Display for Value {
             Fun(fun) => match fun {
                 Function::Native { .. } => "<native fun>".into(),
                 Function::LoxFun { name, .. } => {
-                    format!("<lox fun '{}'>", name.name.as_ref().unwrap())
+                    format!("<lox fun '{}'>", name.get_name())
                 }
             },
         };

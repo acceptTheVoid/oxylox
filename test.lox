@@ -1,10 +1,23 @@
-var a = "global";
-{
-  fun showA() {
-    print a;
-  }
-
-  showA();
-  var a = "block";
-  showA();
+fun make_fib() {
+    var a = 0;
+    var b = 1;
+    fun fib() {
+        var tmp = a;
+        a = b;
+        b = tmp + a;
+        return a;
+    }
+    return fib;
 }
+
+var fib = make_fib();
+print fib();
+print fib();
+print fib();
+print fib();
+print fib();
+print fib();
+print fib();
+print fib();
+print fib();
+print fib();

@@ -89,7 +89,7 @@ impl Environment {
             .expect(&format!("Well, that shouldn't happen... ICE Code: 0x3: No enclosing environment at '{distance}'"));
     
         let mut env = Rc::clone(&parent);
-        for i in 0..distance {
+        for i in 1..distance {
             let parent = env.borrow().enclosing.clone()
                 .expect(&format!("Well, that shouldn't happen... ICE Code: 0x3: No enclosing environment at '{i}'"));
             env = Rc::clone(&parent);
