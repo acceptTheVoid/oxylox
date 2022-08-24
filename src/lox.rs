@@ -1,6 +1,7 @@
 use crate::error::{Error, ParseError, RuntimeError};
 use crate::interpreter::Interpreter;
 use crate::parser::Parser;
+use crate::resolver::Resolver;
 use crate::scanner::Scanner;
 use crate::tokentype::TokenType;
 use std::fs::File;
@@ -80,6 +81,14 @@ impl Lox {
             }
         };
 
+        let mut resolver = Resolver::new(&mut self.interpreter);
+        if let Err(e) = resolver.resolve(&ast) {
+            for e in e {
+                self.error(e);
+            }
+            return;
+        }
+
         match self.interpreter.interpret(ast) {
             Ok(_) => (),
             Err(e) => self.error(e),
@@ -106,7 +115,7 @@ impl Lox {
                 eprintln!("Error in native function: {msg}");
                 self.had_runtime_error = true;
             },
-            Error::Return(_) => unreachable!("Well, that shouldn't happen..."),
+            Error::Return(_) => unreachable!("Well, that shouldn't happen... ICE Code: 0x0: Got return statement as error"),
         }
     }
 

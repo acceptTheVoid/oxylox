@@ -61,6 +61,43 @@ impl Environment {
         }
     }
 
+    pub fn get_at(&self, distance: usize, name: &str) -> Value {
+        if distance == 0 {
+            return self.values.get(name).cloned().unwrap()
+        }
+
+        self.ancestor(distance).borrow().values.get(name).cloned()
+            .expect(&format!("Well, that shouldn't happen... ICE Code 0x4: Undefined variable '{name}'"))
+    }
+
+    pub fn assign_at(&mut self, distance: usize, name: &TokenAstInfo, val: &Value) -> Result<(), Error> {
+        if distance == 0 {
+            match self.values.get_mut(name.get_name()).map(|v| *v = val.clone()) {
+                Some(_) => Ok(()),
+                None => Err(RuntimeError {
+                    token: name.clone(),
+                    msg: format!("Undefined variable '{}'", name.get_name()),
+                }.into())
+            }
+        } else {
+            Ok(self.ancestor(distance).borrow_mut().assign(name, val)?)
+        }
+    }
+
+    pub fn ancestor(&self, distance: usize) -> Rc<RefCell<Environment>> {
+        let parent = self.enclosing.clone()
+            .expect(&format!("Well, that shouldn't happen... ICE Code: 0x3: No enclosing environment at '{distance}'"));
+    
+        let mut env = Rc::clone(&parent);
+        for i in 0..distance {
+            let parent = env.borrow().enclosing.clone()
+                .expect(&format!("Well, that shouldn't happen... ICE Code: 0x3: No enclosing environment at '{i}'"));
+            env = Rc::clone(&parent);
+        }
+
+        env
+    }
+
     pub fn assign(&mut self, name: &TokenAstInfo, value: &Value) -> Result<(), Error> {
         let key = name.name.as_ref().unwrap();
         if self.values.contains_key(key) {

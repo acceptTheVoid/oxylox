@@ -7,11 +7,21 @@ pub use expr::*;
 
 use crate::{token::Token, tokentype::TokenType};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TokenAstInfo {
+    // это поле можно было бы применять для ошибок но мне впадлу поэтому оно тут будет только для избегания 
+    // коллизий при хеше
+    pos: usize,
     pub line: usize,
     pub kind: TokenType,
     pub name: Option<String>,
+}
+
+impl TokenAstInfo {
+    pub fn get_name(&self) -> &str {
+        self.name.as_ref()
+            .expect("Well, that shouldn't happen... ICE Code: 0x2: Tried to get name not from identifier")
+    }
 }
 
 impl std::fmt::Display for TokenAstInfo {
@@ -32,6 +42,7 @@ impl From<&Token> for TokenAstInfo {
         };
 
         Self {
+            pos: token.pos,
             line: token.line,
             kind: token.r#type,
             name,

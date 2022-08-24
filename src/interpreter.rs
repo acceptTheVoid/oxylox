@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, collections::HashMap};
 
 use crate::{
     ast::{stmt::Stmt, visitor::Visitor, Expr, TokenAstInfo},
@@ -6,7 +6,6 @@ use crate::{
     error::{Error, RuntimeError},
     function::Function,
     lox_callable::Callable,
-    token::Token,
     tokentype::TokenType,
     value::Value,
 };
@@ -15,6 +14,7 @@ use crate::{
 pub struct Interpreter {
     pub globals: Rc<RefCell<Environment>>,
     environment: Rc<RefCell<Environment>>,
+    locals: HashMap<TokenAstInfo, usize>,
 }
 
 impl Visitor for Interpreter {
@@ -114,10 +114,16 @@ impl Visitor for Interpreter {
                 }
                 .map_err(|re| re.into())
             }
-            Expr::Variable(name) => self.environment.borrow().get(name),
+            Expr::Variable(name) => self.lookup_variable(name),
             Expr::Assign { name, val } => {
                 let val = self.visit_expression(val)?;
-                self.environment.borrow_mut().assign(name, &val)?;
+
+                let distance = self.locals.get(name);
+                if let Some(distance) = distance {
+                    self.environment.borrow_mut().assign_at(*distance, name, &val)?;
+                } else {
+                    self.globals.borrow_mut().assign(name, &val)?;
+                }
                 Ok(val)
             }
             Expr::Logical { left, op, right } => {
@@ -251,6 +257,21 @@ impl Interpreter {
         Self {
             globals,
             environment,
+            locals: HashMap::new(),
+        }
+    }
+
+    pub fn resolve(&mut self, name: &TokenAstInfo, depth: usize) {
+        self.locals.insert(name.clone(), depth);
+    }
+
+    fn lookup_variable(&self, name: &TokenAstInfo) -> Result<Value, Error> {
+        let distance = self.locals.get(name);
+    
+        if let Some(distance) = distance {
+            Ok(self.environment.borrow().get_at(*distance, name.get_name()))
+        } else {
+            Ok(self.globals.borrow().get(name)?)
         }
     }
 
@@ -354,20 +375,5 @@ fn is_truthy(val: &Value) -> bool {
         Value::Nil => false,
         Value::Bool(b) => b,
         _ => true,
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct TokenInfo {
-    pub lexeme: String,
-    pub line: usize,
-}
-
-impl From<&Token> for TokenInfo {
-    fn from(token: &Token) -> Self {
-        Self {
-            lexeme: token.lexeme.clone(),
-            line: token.line,
-        }
     }
 }

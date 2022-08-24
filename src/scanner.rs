@@ -43,6 +43,7 @@ impl<'a> Scanner<'a> {
             "".to_string(),
             Value::Nil,
             self.line,
+            self.current,
         ));
 
         Ok(self.tokens)
@@ -126,7 +127,7 @@ impl<'a> Scanner<'a> {
     fn add_token_literal(&mut self, token: TokenType, literal: Value) {
         let text = &self.source[self.bytes_start..self.bytes_cur];
         self.tokens
-            .push(Token::new(token, text.to_string(), literal, self.line));
+            .push(Token::new(token, text.to_string(), literal, self.line, self.current));
     }
 
     fn r#match(&mut self, expected: char) -> bool {
