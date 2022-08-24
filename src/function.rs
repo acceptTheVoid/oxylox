@@ -23,6 +23,11 @@ pub enum Function {
         body: Vec<Stmt>,
         closure: Rc<RefCell<Environment>>,
     },
+    LoxLambda {
+        params: Vec<TokenAstInfo>,
+        body: Vec<Stmt>,
+        closure: Rc<RefCell<Environment>>,
+    },
 }
 
 impl Callable<Result<Value, Error>> for Function {
@@ -48,6 +53,24 @@ impl Callable<Result<Value, Error>> for Function {
                     },
                 }
             }
+            Self::LoxLambda {
+                params,
+                body,
+                closure,
+            } => {
+                let env = Rc::new(RefCell::new(Environment::from(closure)));
+                for (param, arg) in params.iter().zip(args.iter()) {
+                    env.borrow_mut().define(param, arg.clone())?;
+                }
+
+                match interpreter.execute_block(body, env) {
+                    Ok(v) => Ok(v),
+                    Err(e) => match e {
+                        Error::Return(v) => Ok(v),
+                        re => Err(re),
+                    },
+                }
+            }
         }
     }
 
@@ -55,6 +78,7 @@ impl Callable<Result<Value, Error>> for Function {
         match self {
             Self::Native { arity, .. } => *arity,
             Self::LoxFun { params, .. } => params.len(),
+            Self::LoxLambda { params, .. } => params.len(),
         }
     }
 }

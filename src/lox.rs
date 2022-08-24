@@ -74,6 +74,7 @@ impl Lox {
         let ast = match parser.parse() {
             Ok(ast) => ast,
             Err(e) => {
+                dbg!(&e);
                 for pe in e {
                     self.error(pe.into());
                 }
@@ -114,8 +115,10 @@ impl Lox {
             Error::NativeCallError(msg) => {
                 eprintln!("Error in native function: {msg}");
                 self.had_runtime_error = true;
-            },
-            Error::Return(_) => unreachable!("Well, that shouldn't happen... ICE Code: 0x0: Got return statement as error"),
+            }
+            Error::Return(_) => unreachable!(
+                "Well, that shouldn't happen... ICE Code: 0x0: Got return statement as error"
+            ),
         }
     }
 

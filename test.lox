@@ -1,23 +1,5 @@
-fun make_fib() {
-    var a = 0;
-    var b = 1;
-    fun fib() {
-        var tmp = a;
-        a = b;
-        b = tmp + a;
-        return a;
-    }
-    return fib;
-}
+var prnt = fun (n) { print n; };
 
-var fib = make_fib();
-print fib();
-print fib();
-print fib();
-print fib();
-print fib();
-print fib();
-print fib();
-print fib();
-print fib();
-print fib();
+prnt(10);
+prnt("bebra");
+prnt(!!"МЕГА БЕБРА");

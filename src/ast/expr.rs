@@ -1,6 +1,6 @@
 use crate::value::Value;
 
-use super::TokenAstInfo;
+use super::{stmt::Stmt, TokenAstInfo};
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -30,5 +30,9 @@ pub enum Expr {
         callee: Box<Expr>,
         paren: TokenAstInfo,
         args: Vec<Expr>,
+    },
+    Lambda {
+        params: Vec<TokenAstInfo>,
+        body: Vec<Stmt>,
     },
 }

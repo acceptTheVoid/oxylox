@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, collections::HashMap};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     ast::{stmt::Stmt, visitor::Visitor, Expr, TokenAstInfo},
@@ -120,7 +120,9 @@ impl Visitor for Interpreter {
 
                 let distance = self.locals.get(name);
                 if let Some(distance) = distance {
-                    self.environment.borrow_mut().assign_at(*distance, name, &val)?;
+                    self.environment
+                        .borrow_mut()
+                        .assign_at(*distance, name, &val)?;
                 } else {
                     self.globals.borrow_mut().assign(name, &val)?;
                 }
@@ -173,6 +175,14 @@ impl Visitor for Interpreter {
                     .into())
                 }
             }
+            Expr::Lambda { body, params } => {
+                let lambda = Function::LoxLambda {
+                    body: body.clone(),
+                    params: params.clone(),
+                    closure: Rc::clone(&self.environment),
+                };
+                Ok(Value::Fun(lambda))
+            }
         }
     }
 }
@@ -189,15 +199,20 @@ impl Interpreter {
         let num = |val: &[Value]| -> Result<Value, Error> {
             match &val[0] {
                 Value::Number(n) => Ok(Value::Number(*n)),
-                Value::Bool(b) => Ok(if *b { Value::Number(1.) } else { Value::Number(0.) }),
+                Value::Bool(b) => Ok(if *b {
+                    Value::Number(1.)
+                } else {
+                    Value::Number(0.)
+                }),
                 Value::Nil => Ok(Value::Number(0.)),
-                Value::String(s) => {
-                    match s.parse() {
-                        Ok(n) => Ok(Value::Number(n)),
-                        Err(e) => Err(Error::NativeCallError(format!("{e}")))
-                    }
-                }
-                _ => Err(Error::NativeCallError(format!("{} cannot be parsed into number", val[0])))
+                Value::String(s) => match s.parse() {
+                    Ok(n) => Ok(Value::Number(n)),
+                    Err(e) => Err(Error::NativeCallError(format!("{e}"))),
+                },
+                _ => Err(Error::NativeCallError(format!(
+                    "{} cannot be parsed into number",
+                    val[0]
+                ))),
             }
         };
 
@@ -207,19 +222,16 @@ impl Interpreter {
                 Value::Bool(_) => "bool".to_string(),
                 Value::Number(_) => "number".to_string(),
                 Value::String(_) => "string".to_string(),
-                Value::Fun(_) => format!("{}", &val[0]), 
+                Value::Fun(_) => format!("{}", &val[0]),
             };
 
             Ok(Value::String(tpe))
         };
 
-        let string = |val: &[Value]| -> Result<Value, Error> {
-            Ok(Value::String(val[0].to_string()))
-        };
+        let string =
+            |val: &[Value]| -> Result<Value, Error> { Ok(Value::String(val[0].to_string())) };
 
-        let bool = |val: &[Value]| -> Result<Value, Error> {
-            Ok(Value::Bool(is_truthy(&val[0])))
-        };
+        let bool = |val: &[Value]| -> Result<Value, Error> { Ok(Value::Bool(is_truthy(&val[0]))) };
 
         let clock = Value::Fun(Function::Native {
             arity: 0,
@@ -267,7 +279,7 @@ impl Interpreter {
 
     fn lookup_variable(&self, name: &TokenAstInfo) -> Result<Value, Error> {
         let distance = self.locals.get(name);
-    
+
         if let Some(distance) = distance {
             Ok(self.environment.borrow().get_at(*distance, name.get_name()))
         } else {

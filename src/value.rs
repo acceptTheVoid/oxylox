@@ -25,6 +25,7 @@ impl std::fmt::Display for Value {
                 Function::LoxFun { name, .. } => {
                     format!("<lox fun '{}'>", name.get_name())
                 }
+                Function::LoxLambda { .. } => "<lox lambda>".into(),
             },
         };
         write!(f, "{to_write}")

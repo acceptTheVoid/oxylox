@@ -460,6 +460,10 @@ impl Parser {
             return Ok(Expr::Literal(self.previous().literal.clone()));
         }
 
+        if self.match_any(&[Fun]) {
+            return self.function_expr();
+        }
+
         if self.match_any(&[Identifier]) {
             return Ok(Expr::Variable(self.previous().into()));
         }
@@ -474,6 +478,33 @@ impl Parser {
             token: self.peek().into(),
             msg: "Expect expression".to_string(),
         })
+    }
+
+    fn function_expr(&mut self) -> Result<Expr, ParseError> {
+        self.consume(LeftParen, "Expected '(' in function expression")?;
+
+        let mut params = vec![];
+        if !self.check(RightParen) {
+            loop {
+                if params.len() >= 255 {
+                    return Err(ParseError {
+                        token: self.peek().into(),
+                        msg: "Can't have more than 255 parametres".into(),
+                    });
+                }
+
+                params.push(self.consume(Identifier, "Expect parameter name")?.into());
+                if !self.match_any(&[Comma]) {
+                    break;
+                }
+            }
+        }
+
+        self.consume(RightParen, "Expect ')' after parameters")?;
+
+        self.consume(LeftBrace, "Expect '{{' before lambda body")?;
+        let body = self.block()?;
+        Ok(Expr::Lambda { params, body })
     }
 
     fn consume(&mut self, token: TokenType, msg: &str) -> Result<&Token, ParseError> {

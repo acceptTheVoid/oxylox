@@ -6,12 +6,12 @@ pub mod interpreter;
 pub mod lox;
 pub mod lox_callable;
 pub mod parser;
+pub mod resolver;
 pub mod scanner;
 pub mod test;
 pub mod token;
 pub mod tokentype;
 pub mod value;
-pub mod resolver;
 
 use lox::Lox;
 use std::{env::args, io::Result, process::exit};

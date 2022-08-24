@@ -71,6 +71,7 @@ impl Visitor for AstPrint {
             } => {
                 todo!()
             }
+            _ => todo!(),
         }
     }
 }

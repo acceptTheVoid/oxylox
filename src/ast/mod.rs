@@ -9,7 +9,7 @@ use crate::{token::Token, tokentype::TokenType};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TokenAstInfo {
-    // это поле можно было бы применять для ошибок но мне впадлу поэтому оно тут будет только для избегания 
+    // это поле можно было бы применять для ошибок но мне впадлу поэтому оно тут будет только для избегания
     // коллизий при хеше
     pos: usize,
     pub line: usize,
@@ -19,8 +19,9 @@ pub struct TokenAstInfo {
 
 impl TokenAstInfo {
     pub fn get_name(&self) -> &str {
-        self.name.as_ref()
-            .expect("Well, that shouldn't happen... ICE Code: 0x2: Tried to get name not from identifier")
+        self.name.as_ref().expect(
+            "Well, that shouldn't happen... ICE Code: 0x2: Tried to get name not from identifier",
+        )
     }
 }
 

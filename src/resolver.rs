@@ -1,9 +1,14 @@
 use std::collections::HashMap;
 
-use crate::{ast::{visitor::Visitor, stmt::Stmt, Expr, TokenAstInfo}, interpreter::Interpreter, error::{Error, ParseError}};
+use crate::{
+    ast::{stmt::Stmt, visitor::Visitor, Expr, TokenAstInfo},
+    error::{Error, ParseError},
+    interpreter::Interpreter,
+};
 
 #[derive(Debug, Clone, Copy)]
 enum FunctionType {
+    Lambda,
     Fun,
     None,
 }
@@ -25,7 +30,7 @@ impl<'a> Resolver<'a> {
 
     pub fn resolve(&mut self, stmts: &[Stmt]) -> Result<(), Vec<Error>> {
         let mut errors = vec![];
-        
+
         for stmt in stmts {
             if let Err(e) = self.visit_statement(stmt) {
                 errors.push(e);
@@ -49,23 +54,25 @@ impl<'a> Resolver<'a> {
 
     fn declare(&mut self, name: &TokenAstInfo) -> Result<(), Error> {
         match self.scopes.last_mut() {
-            Some(scope) => { 
-                if let Some(_) = scope.insert(name.to_string(), false) {
+            Some(scope) => {
+                if scope.insert(name.to_string(), false).is_some() {
                     return Err(Error::ParseError(ParseError {
                         token: name.clone(),
                         msg: "Already a variable with this name in this scope".into(),
-                    }))
-                } 
-            },
+                    }));
+                }
+            }
             None => (),
         }
-        
+
         Ok(())
     }
 
     fn define(&mut self, name: &str) {
         match self.scopes.last_mut() {
-            Some(scope) => { scope.insert(name.to_string(), true); },
+            Some(scope) => {
+                scope.insert(name.to_string(), true);
+            }
             None => (),
         }
     }
@@ -74,7 +81,7 @@ impl<'a> Resolver<'a> {
         for (i, scope) in self.scopes.iter().rev().enumerate() {
             if scope.contains_key(name.get_name()) {
                 self.interpreter.resolve(name, i);
-                return
+                return;
             }
         }
     }
@@ -85,9 +92,8 @@ impl<'a> Resolver<'a> {
         self.begin_scope();
         if let Stmt::Function { params, body, .. } = fun {
             for param in params {
-                let name = param;
-                self.declare(name)?;
-                self.define(name.get_name());
+                self.declare(param)?;
+                self.define(param.get_name());
             }
 
             for stmt in body {
@@ -96,6 +102,29 @@ impl<'a> Resolver<'a> {
         } else {
             panic!("Well, that shouldn't happen... ICE Code: 0x1: Failed to resolve function")
         }
+        self.end_scope();
+        self.cur_function = enclosing;
+
+        Ok(())
+    }
+
+    fn resolve_lambda(&mut self, fun: &Expr, fun_type: FunctionType) -> Result<(), Error> {
+        let enclosing = self.cur_function;
+        self.cur_function = fun_type;
+        self.begin_scope();
+        if let Expr::Lambda { body, params } = fun {
+            for param in params {
+                self.declare(param)?;
+                self.define(param.get_name());
+            }
+
+            for stmt in body {
+                self.visit_statement(stmt)?;
+            }
+        } else {
+            panic!("Well, that shouldn't happen... ICE Code: 0x5: Failed to resolve lambda")
+        }
+
         self.end_scope();
         self.cur_function = enclosing;
 
@@ -118,25 +147,28 @@ impl<'a> Visitor for Resolver<'a> {
             Expr::Binary { left, right, .. } => {
                 self.visit_expression(left)?;
                 self.visit_expression(right)?;
-            },
+            }
             Expr::Grouping(expr) => {
                 self.visit_expression(expr)?;
-            },
+            }
             Expr::Literal(_) => (),
-            Expr::Unary { right, .. } => { 
+            Expr::Unary { right, .. } => {
                 self.visit_expression(right)?;
-            },
+            }
             Expr::Logical { left, right, .. } => {
                 self.visit_expression(left)?;
                 self.visit_expression(right)?;
-            },
+            }
             Expr::Call { callee, args, .. } => {
                 self.visit_expression(callee)?;
 
                 for arg in args {
                     self.visit_expression(arg)?;
                 }
-            },
+            }
+            Expr::Lambda { .. } => {
+                self.resolve_lambda(expr, FunctionType::Lambda)?;
+            }
         }
 
         Ok(())
@@ -163,7 +195,11 @@ impl<'a> Visitor for Resolver<'a> {
                 self.resolve_function(stmt, FunctionType::Fun)?;
             }
             Stmt::Expr(expr) => self.visit_expression(expr)?,
-            Stmt::If { cond, then, else_stmt } => {
+            Stmt::If {
+                cond,
+                then,
+                else_stmt,
+            } => {
                 self.visit_expression(cond)?;
                 self.visit_statement(then)?;
                 if let Some(stmt) = else_stmt {
@@ -175,7 +211,8 @@ impl<'a> Visitor for Resolver<'a> {
                     return Err(ParseError {
                         token: keyword.clone(),
                         msg: "Can't return from top-level code".into(),
-                    }.into())
+                    }
+                    .into());
                 }
 
                 self.visit_expression(val)?;
@@ -188,7 +225,7 @@ impl<'a> Visitor for Resolver<'a> {
                 for expr in exprs {
                     self.visit_expression(expr)?;
                 }
-            },
+            }
         };
 
         Ok(())
