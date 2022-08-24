@@ -1,13 +1,11 @@
-use crate::token::Token;
-
-use super::Expr;
+use super::{Expr, TokenAstInfo};
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
     Expr(Expr),
     Print(Vec<Expr>),
     Var {
-        name: Token,
+        name: TokenAstInfo,
         initializer: Expr,
     },
     Block(Vec<Stmt>),
@@ -21,12 +19,12 @@ pub enum Stmt {
         body: Box<Stmt>,
     },
     Function {
-        name: Token,
-        params: Vec<Token>,
+        name: TokenAstInfo,
+        params: Vec<TokenAstInfo>,
         body: Vec<Stmt>,
     },
     Return {
-        keyword: Token,
+        keyword: TokenAstInfo,
         val: Expr,
     },
 }

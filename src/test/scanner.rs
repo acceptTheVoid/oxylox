@@ -64,11 +64,11 @@ mod tests {
         assert_eq!(
             tokens,
             vec![
-                "Number 123 123.0",
+                "Number 123 123",
                 "Number 123.456 123.456",
                 "Dot . Nil",
-                "Number 456 456.0",
-                "Number 123 123.0",
+                "Number 456 456",
+                "Number 123 123",
                 "Dot . Nil",
                 "Eof  Nil",
             ]

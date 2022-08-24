@@ -1,22 +1,13 @@
-fun make_fib() {
-	var a = 0;
-	var b = 1;
-	fun fib() {
-		var tmp = a;
-		a = b;
-		b = tmp + b;
-		return a;
-	}
-	return fib;
+fun fib(n) {
+	if(n < 2) return n;
+	return fib(n - 1) + fib(n - 2);
 }
 
-var fib = make_fib();
-print fib();
-print fib();
-print fib();
-print fib();
-print fib();
-print fib();
-print fib();
-print fib();
-print fib();
+// for(var i = 0; i < 30; i = i + 1) {
+//		var start = clock();
+//		fib(i);
+// 		print "i = ", i, "; Elapsed: ", clock() - start;
+// }
+var start = clock();
+fib(28);
+print clock() - start;

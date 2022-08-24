@@ -1,12 +1,11 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    ast::stmt::Stmt,
+    ast::{stmt::Stmt, TokenAstInfo},
     environment::Environment,
     error::Error,
-    interpreter::{Interpreter, TokenInfo},
+    interpreter::Interpreter,
     lox_callable::Callable,
-    token::Token,
     value::Value,
 };
 
@@ -17,8 +16,8 @@ pub enum Function {
         body: Box<fn(&[Value]) -> Value>,
     },
     LoxFun {
-        name: TokenInfo,
-        params: Vec<Token>,
+        name: TokenAstInfo,
+        params: Vec<TokenAstInfo>,
         body: Vec<Stmt>,
         closure: Rc<RefCell<Environment>>,
     },
@@ -65,15 +64,7 @@ impl std::fmt::Debug for Function {
 }
 
 impl PartialEq for Function {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            _ => false,
-        }
-    }
-
-    fn ne(&self, other: &Self) -> bool {
-        match (self, other) {
-            _ => false,
-        }
+    fn eq(&self, _other: &Self) -> bool {
+        false
     }
 }

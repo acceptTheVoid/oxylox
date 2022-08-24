@@ -19,7 +19,7 @@ impl Visitor for AstPrint {
                 // format!("(print {})", self.visit_expression(expr))
             }
             Stmt::Var { name, initializer } => {
-                format!("({} {})", name.lexeme, self.visit_expression(initializer))
+                todo!() // format!("({} {})", name.lexeme, self.visit_expression(initializer))
             }
             Stmt::Block(statements) => {
                 let mut res = "{".to_string();
@@ -54,17 +54,12 @@ impl Visitor for AstPrint {
             Expr::Literal(lit) => format!("{lit}"),
             Expr::Grouping(expr) => format!("(group {})", self.visit_expression(expr)),
             Expr::Unary { op, right } => {
-                format!("({} {})", op.lexeme, self.visit_expression(right))
+                todo!()
             }
-            Expr::Binary { left, op, right } => format!(
-                "({} {} {})",
-                op.lexeme,
-                self.visit_expression(left),
-                self.visit_expression(right)
-            ),
-            Expr::Variable(name) => format!("{}", name.lexeme),
+            Expr::Binary { left, op, right } => todo!(),
+            Expr::Variable(name) => todo!(), //format!("{}", name.lexeme),
             Expr::Assign { name, val } => {
-                format!("(assign {} {})", name.lexeme, self.visit_expression(val))
+                todo!() // format!("(assign {} {})", name.lexeme, self.visit_expression(val))
             }
             Expr::Logical { left, op, right } => {
                 todo!()

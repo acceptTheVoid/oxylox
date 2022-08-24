@@ -1,9 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    ast::{stmt::Stmt, visitor::Visitor, Expr},
+    ast::{stmt::Stmt, visitor::Visitor, Expr, TokenAstInfo},
     environment::Environment,
-    error::Error,
+    error::{Error, RuntimeError},
     function::Function,
     lox_callable::Callable,
     token::Token,
@@ -11,6 +11,7 @@ use crate::{
     value::Value,
 };
 
+#[derive(Default)]
 pub struct Interpreter {
     pub globals: Rc<RefCell<Environment>>,
     environment: Rc<RefCell<Environment>>,
@@ -48,7 +49,7 @@ impl Visitor for Interpreter {
                 if self.is_truthy(&cond) {
                     self.visit_statement(then)?;
                 } else if else_stmt.is_some() {
-                    self.visit_statement(&else_stmt.as_ref().unwrap())?;
+                    self.visit_statement(else_stmt.as_ref().unwrap())?;
                 }
             }
             Stmt::While { cond, body } => loop {
@@ -60,7 +61,7 @@ impl Visitor for Interpreter {
             },
             Stmt::Function { name, params, body } => {
                 let fun = Function::LoxFun {
-                    name: name.into(),
+                    name: name.clone(),
                     params: params.clone(),
                     body: body.clone(),
                     closure: Rc::clone(&self.environment),
@@ -80,14 +81,14 @@ impl Visitor for Interpreter {
 
     fn visit_expression(&mut self, expr: &crate::ast::Expr) -> Self::Output {
         match expr {
-            Expr::Literal(val) => Ok(val.clone()), // TODO: Ужасный клон это говнище надо исправить
+            Expr::Literal(val) => Ok(val.clone()), 
             Expr::Grouping(expr) => self.visit_expression(expr),
             Expr::Unary { op, right } => {
                 let right = self.visit_expression(right)?;
 
-                match (op.r#type, &right) {
+                match (op.kind, &right) {
                     (TokenType::Minus, Value::Number(n)) => Ok(Value::Number(-n)),
-                    (TokenType::Minus, _) => Err(RuntimeError::number_op_err(&op).into()),
+                    (TokenType::Minus, _) => Err(RuntimeError::number_op_err(op).into()),
                     (TokenType::Bang, _) => Ok(Value::Bool(!self.is_truthy(&right))),
                     _ => unreachable!(),
                 }
@@ -95,9 +96,9 @@ impl Visitor for Interpreter {
             Expr::Binary { left, op, right } => {
                 let left = self.visit_expression(left)?;
                 let right = self.visit_expression(right)?;
-                let op = op.clone();
+                let op = op;
 
-                match op.r#type {
+                match op.kind {
                     TokenType::Minus => self.minus(left, right, op),
                     TokenType::Slash => self.slash(left, right, op),
                     TokenType::Star => self.star(left, right, op),
@@ -113,23 +114,21 @@ impl Visitor for Interpreter {
                 }
                 .map_err(|re| re.into())
             }
-            Expr::Variable(name) => self.environment.borrow().get(&name),
+            Expr::Variable(name) => self.environment.borrow().get(name),
             Expr::Assign { name, val } => {
                 let val = self.visit_expression(val)?;
-                self.environment.borrow_mut().assign(&name, &val)?;
+                self.environment.borrow_mut().assign(name, &val)?;
                 Ok(val)
             }
             Expr::Logical { left, op, right } => {
                 let left = self.visit_expression(left)?;
 
-                if op.r#type == TokenType::Or {
+                if op.kind == TokenType::Or {
                     if self.is_truthy(&left) {
                         return Ok(left);
                     }
-                } else {
-                    if !self.is_truthy(&left) {
-                        return Ok(left);
-                    }
+                } else if !self.is_truthy(&left) {
+                    return Ok(left);
                 }
 
                 Ok(self.visit_expression(right)?)
@@ -149,7 +148,7 @@ impl Visitor for Interpreter {
                 if let Value::Fun(fun) = callee {
                     if arguments.len() != fun.arity() {
                         Err(RuntimeError {
-                            token: paren.into(),
+                            token: paren.clone(),
                             msg: format!(
                                 "Expected {} arguments but got {}",
                                 fun.arity(),
@@ -162,7 +161,7 @@ impl Visitor for Interpreter {
                     }
                 } else {
                     Err(RuntimeError {
-                        token: paren.into(),
+                        token: paren.clone(),
                         msg: "Can only call functions and classes".into(),
                     }
                     .into())
@@ -191,10 +190,9 @@ impl Interpreter {
         globals
             .borrow_mut()
             .define(
-                &Token {
-                    r#type: TokenType::Identifier,
-                    lexeme: "clock".into(),
-                    literal: Value::Nil,
+                &TokenAstInfo {
+                    kind: TokenType::Identifier,
+                    name: Some("clock".into()),
                     line: 0,
                 },
                 clock,
@@ -243,70 +241,70 @@ impl Interpreter {
         }
     }
 
-    fn plus(&self, l: Value, r: Value, op: Token) -> Result<Value, RuntimeError> {
+    fn plus(&self, l: Value, r: Value, op: &TokenAstInfo) -> Result<Value, RuntimeError> {
         match (l, r) {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Number(l + r)),
             (Value::String(l), Value::String(r)) => Ok(Value::String(l + &r)),
             _ => Err(RuntimeError {
-                token: TokenInfo::from(&op),
+                token: op.clone(),
                 msg: "Operands must be either two strings or two numbers".to_string(),
             }),
         }
     }
 
-    fn minus(&self, l: Value, r: Value, op: Token) -> Result<Value, RuntimeError> {
+    fn minus(&self, l: Value, r: Value, op: &TokenAstInfo) -> Result<Value, RuntimeError> {
         match (l, r) {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Number(l - r)),
-            _ => Err(RuntimeError::two_number_op_err(&op)),
+            _ => Err(RuntimeError::two_number_op_err(op)),
         }
     }
 
-    fn slash(&self, l: Value, r: Value, op: Token) -> Result<Value, RuntimeError> {
+    fn slash(&self, l: Value, r: Value, op: &TokenAstInfo) -> Result<Value, RuntimeError> {
         match (l, r) {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Number(l / r)),
-            _ => Err(RuntimeError::two_number_op_err(&op)),
+            _ => Err(RuntimeError::two_number_op_err(op)),
         }
     }
 
-    fn percent(&self, l: Value, r: Value, op: Token) -> Result<Value, RuntimeError> {
+    fn percent(&self, l: Value, r: Value, op: &TokenAstInfo) -> Result<Value, RuntimeError> {
         match (l, r) {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Number(l % r)),
-            _ => Err(RuntimeError::two_number_op_err(&op)),
+            _ => Err(RuntimeError::two_number_op_err(op)),
         }
     }
 
-    fn star(&self, l: Value, r: Value, op: Token) -> Result<Value, RuntimeError> {
+    fn star(&self, l: Value, r: Value, op: &TokenAstInfo) -> Result<Value, RuntimeError> {
         match (l, r) {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Number(l * r)),
-            _ => Err(RuntimeError::two_number_op_err(&op)),
+            _ => Err(RuntimeError::two_number_op_err(op)),
         }
     }
 
-    fn greater(&self, l: Value, r: Value, op: Token) -> Result<Value, RuntimeError> {
+    fn greater(&self, l: Value, r: Value, op: &TokenAstInfo) -> Result<Value, RuntimeError> {
         match (l, r) {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Bool(l > r)),
-            _ => Err(RuntimeError::number_op_err(&op)),
+            _ => Err(RuntimeError::number_op_err(op)),
         }
     }
 
-    fn greater_eq(&self, l: Value, r: Value, op: Token) -> Result<Value, RuntimeError> {
+    fn greater_eq(&self, l: Value, r: Value, op: &TokenAstInfo) -> Result<Value, RuntimeError> {
         match (l, r) {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Bool(l >= r)),
-            _ => Err(RuntimeError::number_op_err(&op)),
+            _ => Err(RuntimeError::number_op_err(op)),
         }
     }
 
-    fn less(&self, l: Value, r: Value, op: Token) -> Result<Value, RuntimeError> {
+    fn less(&self, l: Value, r: Value, op: &TokenAstInfo) -> Result<Value, RuntimeError> {
         match (l, r) {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Bool(l < r)),
-            _ => Err(RuntimeError::number_op_err(&op)),
+            _ => Err(RuntimeError::number_op_err(op)),
         }
     }
 
-    fn less_eq(&self, l: Value, r: Value, op: Token) -> Result<Value, RuntimeError> {
+    fn less_eq(&self, l: Value, r: Value, op: &TokenAstInfo) -> Result<Value, RuntimeError> {
         match (l, r) {
             (Value::Number(l), Value::Number(r)) => Ok(Value::Bool(l <= r)),
-            _ => Err(RuntimeError::number_op_err(&op)),
+            _ => Err(RuntimeError::number_op_err(op)),
         }
     }
 }
@@ -325,33 +323,3 @@ impl From<&Token> for TokenInfo {
         }
     }
 }
-
-#[derive(Debug)]
-pub struct RuntimeError {
-    pub token: TokenInfo,
-    pub msg: String,
-}
-
-impl RuntimeError {
-    fn number_op_err(token: &Token) -> Self {
-        Self {
-            token: token.into(),
-            msg: "Operands must be numbers".into(),
-        }
-    }
-
-    fn two_number_op_err(token: &Token) -> Self {
-        Self {
-            token: token.into(),
-            msg: "Operands must be two numbers".into(),
-        }
-    }
-}
-
-impl std::fmt::Display for RuntimeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl std::error::Error for RuntimeError {}

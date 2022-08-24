@@ -1,10 +1,11 @@
 use crate::{
+    error::{Error, ScanError},
     token::Token,
     tokentype::{TokenType, KEYWORDS},
     value::Value,
 };
 
-pub type ScanResult = Result<Vec<Token>, (usize, String)>;
+pub type ScanResult = Result<Vec<Token>, Error>;
 
 // TODO: ПОЧИНИ UTF-8 СИМВОЛЫ ЕПТА
 // Это не так сложно
@@ -47,7 +48,7 @@ impl<'a> Scanner<'a> {
         self.current >= self.source.len()
     }
 
-    fn scan_token(&mut self) -> Result<(), (usize, String)> {
+    fn scan_token(&mut self) -> Result<(), Error> {
         use TokenType::*;
 
         let c = self.advance();
@@ -94,7 +95,11 @@ impl<'a> Scanner<'a> {
             d if d.is_ascii_digit() => self.number(),
             i if is_alpha(i) => self.identifier(),
             _ => {
-                return Err((self.line, "Unexpected character".to_string()));
+                return Err(ScanError {
+                    line: self.line,
+                    msg: "Unexpected character".into(),
+                }
+                .into())
             }
         }
 
@@ -133,7 +138,7 @@ impl<'a> Scanner<'a> {
         self.source.chars().nth(self.current)
     }
 
-    fn string(&mut self) -> Result<(), (usize, String)> {
+    fn string(&mut self) -> Result<(), Error> {
         while let Some(ch) = self.peek() {
             match ch {
                 '"' => break,
@@ -148,7 +153,11 @@ impl<'a> Scanner<'a> {
         }
 
         if self.is_at_end() {
-            return Err((self.line, "Unterminated string".to_string()));
+            return Err(ScanError {
+                line: self.line,
+                msg: "Unterminated string".into(),
+            }
+            .into());
         }
 
         self.advance();

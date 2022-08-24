@@ -1,32 +1,34 @@
-use crate::{token::Token, value::Value};
+use crate::value::Value;
+
+use super::TokenAstInfo;
 
 #[derive(Debug, Clone)]
 pub enum Expr {
     Binary {
         left: Box<Expr>,
-        op: Token,
+        op: TokenAstInfo,
         right: Box<Expr>,
     },
     Grouping(Box<Expr>),
     Literal(Value),
     Unary {
-        op: Token,
+        op: TokenAstInfo,
         right: Box<Expr>,
     },
     /// Contains name of the variable
-    Variable(Token),
+    Variable(TokenAstInfo),
     Logical {
         left: Box<Expr>,
-        op: Token,
+        op: TokenAstInfo,
         right: Box<Expr>,
     },
     Assign {
-        name: Token,
+        name: TokenAstInfo,
         val: Box<Expr>,
     },
     Call {
         callee: Box<Expr>,
-        paren: Token,
+        paren: TokenAstInfo,
         args: Vec<Expr>,
     },
 }

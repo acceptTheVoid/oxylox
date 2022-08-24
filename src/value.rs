@@ -21,8 +21,10 @@ impl std::fmt::Display for Value {
             String(s) => s.to_string(),
             Bool(b) => b.to_string(),
             Fun(fun) => match fun {
-                Function::Native { .. } => format!("<native fun>"),
-                Function::LoxFun { name, .. } => format!("<lox fun '{}'>", name.lexeme),
+                Function::Native { .. } => "<native fun>".into(),
+                Function::LoxFun { name, .. } => {
+                    format!("<lox fun '{}'>", name.name.as_ref().unwrap())
+                }
             },
         };
         write!(f, "{to_write}")

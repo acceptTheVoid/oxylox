@@ -1,13 +1,13 @@
-use crate::error::Error;
+use crate::error::{Error, ParseError, RuntimeError};
 use crate::interpreter::Interpreter;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
-use crate::token::Token;
 use crate::tokentype::TokenType;
 use std::fs::File;
 use std::io::{self, Read, Result, Write};
 use std::process::exit;
 
+#[derive(Default)]
 pub struct Lox {
     had_error: bool,
     had_runtime_error: bool,
@@ -61,50 +61,48 @@ impl Lox {
 
     fn run(&mut self, line: &str) {
         let scanner = Scanner::new(line);
-
-        match scanner.scan_tokens() {
-            Ok(tokens) => {
-                let mut parser = Parser::new(tokens);
-                match parser.parse() {
-                    Ok(stmt) => {
-                        match self.interpreter.interpret(stmt) {
-                            Ok(_) => (),
-                            Err(e) => self.runtime_error(e),
-                        }
-                        // let mut printer = crate::ast::ast_printer::AstPrint;
-                        // println!("{}", printer.print(&stmt));
-                    }
-                    Err(e) => {
-                        for e in e {
-                            self.parse_error(&e.token, &e.msg)
-                        }
-                    }
-                };
+        let tokens = match scanner.scan_tokens() {
+            Ok(t) => t,
+            Err(e) => {
+                self.error(e);
+                return;
             }
-            Err((line, msg)) => self.scan_error(line, &msg),
-        }
-    }
+        };
 
-    fn scan_error(&mut self, line: usize, msg: &str) {
-        self.report(line, "", msg);
-    }
-
-    fn parse_error(&mut self, token: &Token, msg: &str) {
-        if token.r#type == TokenType::Eof {
-            self.report(token.line, " at end", msg);
-        } else {
-            self.report(token.line, &format!(" at '{}'", token.lexeme), msg);
-        }
-    }
-
-    fn runtime_error(&mut self, error: Error) {
-        match error {
-            Error::RuntimeError(re) => {
-                eprintln!("{}\n[line {}]", re.msg, re.token.line);
+        let mut parser = Parser::new(tokens);
+        let ast = match parser.parse() {
+            Ok(ast) => ast,
+            Err(e) => {
+                for pe in e {
+                    self.error(pe.into());
+                }
+                return;
             }
-            Error::Return(_) => unreachable!(),
+        };
+
+        match self.interpreter.interpret(ast) {
+            Ok(_) => (),
+            Err(e) => self.error(e),
+        };
+    }
+
+    fn error(&mut self, err: Error) {
+        match err {
+            Error::ScannerError(se) => self.report(se.line, "", &se.msg),
+            Error::ParseError(ParseError { token, msg, .. }) => {
+                if token.kind == TokenType::Eof {
+                    self.report(token.line, " at end", &msg);
+                } else if let Some(name) = token.name {
+                    self.report(token.line, &format!(" at '{name}'"), &msg);
+                } else {
+                    self.report(token.line, &format!(" at '{}'", token.kind), &msg);
+                }
+            }
+            Error::RuntimeError(RuntimeError { token, msg, .. }) => {
+                eprintln!("{msg}\n[line {}]", token.line)
+            }
+            Error::Return(_) => unreachable!("Well, that shouldn't happen..."),
         }
-        self.had_runtime_error = true;
     }
 
     fn report(&mut self, line: usize, r#where: &str, msg: &str) {

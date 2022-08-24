@@ -75,3 +75,61 @@ lazy_static::lazy_static! {
         ("while", While),
     ]);
 }
+
+impl std::fmt::Display for TokenType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let to_write = match self {
+            // Токены состоящие из одного символа
+            LeftParen => "(",
+            RightParen => ")",
+            LeftBrace => "{",
+            RightBrace => "+",
+            Comma => ",",
+            Dot => ".",
+            Minus => "-",
+            Plus => "+",
+            Semicolon => ";",
+            Percent => "%",
+            Slash => "/",
+            Star => "*",
+
+            // Токены из одного или двух символов
+            Bang => "!",
+            BangEq => "!=",
+            Eq => "=",
+            EqEq => "==",
+            Greater => ">",
+            GreaterEq => ">=",
+            Less => "<",
+            LessEq => "<=",
+
+            // Литералы
+            Identifier => "Identifier",
+            String => "String",
+            Number => "Number",
+
+            // Ключевые слова
+            And => "and",
+            Class => "class",
+            Else => "else",
+            False => "false",
+            Fun => "fun",
+            For => "for",
+            If => "if",
+            Nil => "nil",
+            Or => "or",
+            Print => "print",
+            Return => "return",
+            Super => "super",
+            This => "this",
+            True => "true",
+            Var => "var",
+            While => "while",
+
+            // Конец файла
+            Eof => "eof",
+        };
+
+        write!(f, "{to_write}")
+    }
+}
