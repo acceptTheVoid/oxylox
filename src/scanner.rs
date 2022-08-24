@@ -14,6 +14,8 @@ pub struct Scanner<'a> {
     tokens: Vec<Token>,
     start: usize,
     current: usize,
+    bytes_start: usize,
+    bytes_cur: usize,
     line: usize,
 }
 
@@ -24,6 +26,8 @@ impl<'a> Scanner<'a> {
             tokens: Vec::new(),
             start: 0,
             current: 0,
+            bytes_start: 0,
+            bytes_cur: 0,
             line: 1,
         }
     }
@@ -31,6 +35,7 @@ impl<'a> Scanner<'a> {
     pub fn scan_tokens(mut self) -> ScanResult {
         while !self.is_at_end() {
             self.start = self.current;
+            self.bytes_start = self.bytes_cur;
             self.scan_token()?;
         }
 
@@ -45,7 +50,7 @@ impl<'a> Scanner<'a> {
     }
 
     fn is_at_end(&self) -> bool {
-        self.current >= self.source.len()
+        self.bytes_cur >= self.source.len()
     }
 
     fn scan_token(&mut self) -> Result<(), Error> {
@@ -108,6 +113,7 @@ impl<'a> Scanner<'a> {
 
     fn advance(&mut self) -> char {
         let next = self.source.chars().nth(self.current).unwrap();
+        self.bytes_cur += next.len_utf8();
         self.current += 1;
         next
     }
@@ -117,7 +123,7 @@ impl<'a> Scanner<'a> {
     }
 
     fn add_token_literal(&mut self, token: TokenType, literal: Value) {
-        let text = &self.source[self.start..self.current];
+        let text = &self.source[self.bytes_start..self.bytes_cur];
         self.tokens
             .push(Token::new(token, text.to_string(), literal, self.line));
     }
@@ -126,10 +132,12 @@ impl<'a> Scanner<'a> {
         if self.is_at_end() {
             return false;
         }
+
         if self.source.chars().nth(self.current).unwrap() != expected {
             return false;
         }
 
+        self.bytes_cur += expected.len_utf8();
         self.current += 1;
         true
     }
@@ -139,17 +147,39 @@ impl<'a> Scanner<'a> {
     }
 
     fn string(&mut self) -> Result<(), Error> {
+        let mut string = String::new();
         while let Some(ch) = self.peek() {
-            match ch {
+            string.push(match ch {
                 '"' => break,
                 '\n' => {
-                    self.line += 1;
-                    self.advance();
+                    return Err(ScanError {
+                        line: self.line,
+                        msg: "Unterminated string".into(),
+                    }.into())
                 }
+                '\\' => {
+                    self.advance();
+                    if !self.is_at_end() {
+                        match self.advance() {
+                            '0' => '\0',
+                            't' => '\t',
+                            'n' => '\n',
+                            'r' => '\r',     
+                            '\\' => '\\',
+                            '"' => '"',
+                            ch => return Err(ScanError {
+                                line: self.line,
+                                msg: format!("Unsupported symbol '{ch}'"),
+                            }.into()),
+                        }
+                    } else {
+                        break;
+                    }
+                },
                 _ => {
-                    self.advance();
+                    self.advance()
                 }
-            }
+            })
         }
 
         if self.is_at_end() {
@@ -162,8 +192,7 @@ impl<'a> Scanner<'a> {
 
         self.advance();
 
-        let val = &self.source[self.start + 1..self.current - 1];
-        self.add_token_literal(TokenType::String, Value::String(val.to_string()));
+        self.add_token_literal(TokenType::String, Value::String(string));
 
         Ok(())
     }
@@ -180,7 +209,7 @@ impl<'a> Scanner<'a> {
             }
         }
 
-        let num = self.source[self.start..self.current]
+        let num = self.source[self.bytes_start..self.bytes_cur]
             .parse::<f64>()
             .unwrap();
 
@@ -196,7 +225,7 @@ impl<'a> Scanner<'a> {
             self.advance();
         }
 
-        let text = &self.source[self.start..self.current];
+        let text = &self.source[self.bytes_start..self.bytes_cur];
         let r#type = match KEYWORDS.get(text) {
             None => TokenType::Identifier,
             Some(r#type) => *r#type,
